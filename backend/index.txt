@@ -1,0 +1,4 @@
+tenat domain in auth 
+dev-dyvehtyr8uixh7i5.us.auth0.com
+client id
+fOKHnzBChCahxUuVk1ww1hIyALy76TmZ
