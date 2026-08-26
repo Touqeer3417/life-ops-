@@ -51,9 +51,31 @@ export function LandingPage() {
               Create account
               <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button className="bg-black border-white/20 bg-transparent text-white hover:bg-white/10" variant="secondary" onClick={() => void login()}>
+
+            <Button
+              onClick={() => void login()}
+              className="
+            rounded-xl
+    border border-white/15
+    bg-white/10
+    px-5 py-2.5
+    font-medium text-white
+    shadow-sm
+    backdrop-blur-md
+    transition-all duration-300
+    hover:bg-white/20
+    hover:border-white/30
+    hover:shadow-lg
+    hover:-translate-y-0.5
+    active:translate-y-0
+        "
+            >
               Sign in
             </Button>
+
+
+
+
           </div>
         </div>
 
