@@ -26,18 +26,37 @@ export async function apiRequest<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(init.headers)
+
   headers.set('Authorization', `Bearer ${accessToken}`)
   headers.set('Accept', 'application/json')
-  if (init.body && !headers.has('Content-Type')) {
+
+  const isFormData =
+    typeof FormData !== 'undefined' &&
+    init.body instanceof FormData
+
+  if (
+    init.body &&
+    !isFormData &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
 
   let response: Response
+
   try {
-    response = await fetch(`${env.apiUrl}${path}`, { ...init, headers })
+    response = await fetch(
+      `${env.apiUrl}${path}`,
+      {
+        ...init,
+        headers,
+      },
+    )
   } catch (error) {
     throw new ApiError(
-      error instanceof Error ? `Unable to reach API: ${error.message}` : 'Unable to reach API',
+      error instanceof Error
+        ? `Unable to reach API: ${error.message}`
+        : 'Unable to reach API',
       0,
       'network_error',
     )
@@ -45,13 +64,17 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     let body: ApiErrorBody = {}
+
     try {
       body = (await response.json()) as ApiErrorBody
     } catch {
       body = {}
     }
+
     throw new ApiError(
-      body.error?.message ?? body.detail ?? `API request failed with status ${response.status}`,
+      body.error?.message ??
+        body.detail ??
+        `API request failed with status ${response.status}`,
       response.status,
       body.error?.code ?? 'api_error',
     )
@@ -60,5 +83,6 @@ export async function apiRequest<T>(
   if (response.status === 204) {
     return undefined as T
   }
+
   return (await response.json()) as T
 }
