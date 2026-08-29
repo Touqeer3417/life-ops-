@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CalendarDays,
   LayoutDashboard,
   LogOut,
   MessageSquareText,
@@ -35,6 +36,18 @@ const navItems = [
     to: '/app/chat',
     label: 'RAG Chat',
     icon: MessageSquareText,
+    end: false,
+  },
+  {
+    to: '/app/calendar',
+    label: 'Calendar',
+    icon: CalendarDays,
+    end: false,
+  },
+  {
+    to: '/app/integrations',
+    label: 'Integrations',
+    icon: ShieldCheck,
     end: false,
   },
   {
@@ -83,7 +96,7 @@ export function AppShell() {
               </p>
 
               <p className="text-xs text-slate-500">
-                Phase 2 · Standard RAG
+                Phase 3 · Google Calendar
               </p>
             </div>
           </div>
@@ -122,25 +135,45 @@ export function AppShell() {
             )}
           </nav>
 
-       
+          <div className="mt-auto px-2 pb-2 pt-8">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck
+                  className="h-4 w-4 text-emerald-600"
+                  aria-hidden="true"
+                />
+
+                <p className="text-xs font-semibold text-slate-800">
+                  Secure integrations
+                </p>
+              </div>
+
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Auth0 handles your LifeOps
+                identity while Google OAuth
+                permissions remain separate
+                and server-managed.
+              </p>
+            </div>
+          </div>
         </aside>
 
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur md:px-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 lg:hidden">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 lg:hidden">
                 <Sparkles
                   className="h-4 w-4"
                   aria-hidden="true"
                 />
               </div>
 
-              <div>
-                <p className="text-sm font-semibold">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
                   {displayName}
                 </p>
 
-                <p className="hidden text-xs text-slate-500 sm:block">
+                <p className="hidden truncate text-xs text-slate-500 sm:block">
                   {email}
                 </p>
               </div>
@@ -156,6 +189,7 @@ export function AppShell() {
                 className="mr-2 h-4 w-4"
                 aria-hidden="true"
               />
+
               Sign out
             </Button>
           </header>
@@ -177,10 +211,10 @@ export function AppShell() {
                       isActive,
                     }) =>
                       cn(
-                        'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium',
+                        'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
                         isActive
                           ? 'bg-slate-950 text-white'
-                          : 'text-slate-600',
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
                       )
                     }
                   >

@@ -4,8 +4,10 @@ import {
 
 import { ProtectedRoute } from '@/auth/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
+import { CalendarPage } from '@/pages/CalendarPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
+import { IntegrationsPage } from '@/pages/IntegrationsPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { ProfilePage } from '@/pages/ProfilePage'
@@ -41,6 +43,18 @@ export const router =
               path: 'chat',
               element: (
                 <RagChatPage />
+              ),
+            },
+            {
+              path: 'calendar',
+              element: (
+                <CalendarPage />
+              ),
+            },
+            {
+              path: 'integrations',
+              element: (
+                <IntegrationsPage />
               ),
             },
             {

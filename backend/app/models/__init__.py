@@ -2,13 +2,22 @@
 
 from app.models.document import Document, DocumentStatus
 from app.models.document_chunk import DocumentChunk
+from app.models.oauth_connection import (
+    OAuthConnection,
+    OAuthConnectionStatus,
+    OAuthProvider,
+)
 from app.models.user import User
 from app.models.user_preference import UserPreference
+
 
 __all__ = [
     "Document",
     "DocumentChunk",
     "DocumentStatus",
+    "OAuthConnection",
+    "OAuthConnectionStatus",
+    "OAuthProvider",
     "User",
     "UserPreference",
 ]

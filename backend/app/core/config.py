@@ -1,6 +1,9 @@
+from base64 import urlsafe_b64decode
+from binascii import Error as BinasciiError
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import (
     Field,
@@ -24,6 +27,16 @@ SUPPORTED_DOCUMENT_EXTENSIONS = frozenset(
 SUPPORTED_EMBEDDING_PROVIDERS = frozenset({"openai"})
 SUPPORTED_LLM_PROVIDERS = frozenset({"openai", "groq"})
 
+GOOGLE_CALENDAR_READ_SCOPES = (
+    "https://www.googleapis.com/auth/calendar.events.readonly",
+    "https://www.googleapis.com/auth/calendar.freebusy",
+)
+
+GOOGLE_CALENDAR_WRITE_SCOPES = (
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.freebusy",
+)
+
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
@@ -36,9 +49,16 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "LifeOps AI API"
-    app_env: Literal["development", "test", "staging", "production"] = "development"
+    app_env: Literal[
+        "development",
+        "test",
+        "staging",
+        "production",
+    ] = "development"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
+
+    frontend_app_url: str = "http://localhost:5173"
 
     database_url: str = (
         "postgresql+asyncpg://lifeops:lifeops@localhost:5432/lifeops"
@@ -57,22 +77,42 @@ class Settings(BaseSettings):
     )
 
     upload_dir: Path = Path("uploads")
-    max_file_size_mb: int = Field(default=10, ge=1, le=100)
+    max_file_size_mb: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+    )
     allowed_extensions: str = ".pdf,.docx,.txt,.md"
 
-    chunk_size: int = Field(default=1000, ge=100, le=10_000)
-    chunk_overlap: int = Field(default=150, ge=0, le=5_000)
+    chunk_size: int = Field(
+        default=1000,
+        ge=100,
+        le=10_000,
+    )
+    chunk_overlap: int = Field(
+        default=150,
+        ge=0,
+        le=5_000,
+    )
 
     embedding_provider: str = "openai"
     embedding_model: str = "text-embedding-3-small"
-    embedding_dimension: int = Field(default=1536, ge=1, le=2000)
+    embedding_dimension: int = Field(
+        default=1536,
+        ge=1,
+        le=2000,
+    )
     embedding_api_key: SecretStr = SecretStr("")
 
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
     llm_api_key: SecretStr = SecretStr("")
 
-    retrieval_top_k: int = Field(default=5, ge=1, le=50)
+    retrieval_top_k: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+    )
     retrieval_similarity_threshold: float = Field(
         default=0.25,
         ge=0.0,
@@ -82,6 +122,29 @@ class Settings(BaseSettings):
         default=16_000,
         ge=1_000,
         le=200_000,
+    )
+
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: SecretStr = SecretStr("")
+    google_oauth_redirect_uri: str = (
+        "http://localhost:8000/api/v1/integrations/google/callback"
+    )
+    google_oauth_token_encryption_key: SecretStr = SecretStr("")
+
+    google_oauth_state_ttl_seconds: int = Field(
+        default=600,
+        ge=60,
+        le=3600,
+    )
+    google_oauth_http_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
+    )
+    google_calendar_api_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
     )
 
     @computed_field
@@ -100,24 +163,52 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def auth0_userinfo_url(self) -> str:
-        return f"{self.auth0_issuer}userinfo" if self.auth0_issuer else ""
+        if not self.auth0_issuer:
+            return ""
+        return f"{self.auth0_issuer}userinfo"
 
     @computed_field
     @property
     def max_file_size_bytes(self) -> int:
         return self.max_file_size_mb * 1024 * 1024
 
+    @computed_field
+    @property
+    def google_calendar_configured(self) -> bool:
+        return all(
+            (
+                self.google_oauth_client_id.strip(),
+                self.google_oauth_client_secret.get_secret_value().strip(),
+                self.google_oauth_redirect_uri.strip(),
+                self.google_oauth_token_encryption_key
+                .get_secret_value()
+                .strip(),
+            )
+        )
+
     @property
     def allowed_extension_set(self) -> frozenset[str]:
         return frozenset(self.allowed_extensions.split(","))
 
+    @property
+    def google_calendar_read_scopes(self) -> tuple[str, ...]:
+        return GOOGLE_CALENDAR_READ_SCOPES
+
+    @property
+    def google_calendar_write_scopes(self) -> tuple[str, ...]:
+        return GOOGLE_CALENDAR_WRITE_SCOPES
+
     @field_validator("allowed_extensions")
     @classmethod
-    def normalize_allowed_extensions(cls, value: str) -> str:
+    def normalize_allowed_extensions(
+        cls,
+        value: str,
+    ) -> str:
         normalized: set[str] = set()
 
         for raw_extension in value.split(","):
             extension = raw_extension.strip().lower()
+
             if not extension:
                 continue
 
@@ -125,9 +216,11 @@ class Settings(BaseSettings):
                 extension = f".{extension}"
 
             if extension not in SUPPORTED_DOCUMENT_EXTENSIONS:
-                supported = ", ".join(sorted(SUPPORTED_DOCUMENT_EXTENSIONS))
+                supported = ", ".join(
+                    sorted(SUPPORTED_DOCUMENT_EXTENSIONS)
+                )
                 raise ValueError(
-                    f"Unsupported configured document extension "
+                    "Unsupported configured document extension "
                     f"{extension!r}. Supported extensions: {supported}"
                 )
 
@@ -135,44 +228,110 @@ class Settings(BaseSettings):
 
         if not normalized:
             raise ValueError(
-                "At least one supported document extension must be configured"
+                "At least one supported document extension "
+                "must be configured"
             )
 
         return ",".join(sorted(normalized))
 
-    @field_validator("embedding_provider", "llm_provider", mode="before")
+    @field_validator(
+        "embedding_provider",
+        "llm_provider",
+        mode="before",
+    )
     @classmethod
-    def normalize_provider(cls, value: str) -> str:
+    def normalize_provider(
+        cls,
+        value: str,
+    ) -> str:
         normalized = value.strip().lower()
+
         if not normalized:
-            raise ValueError("Provider name cannot be empty")
+            raise ValueError(
+                "Provider name cannot be empty"
+            )
+
         return normalized
 
-    @field_validator("embedding_model", "llm_model")
+    @field_validator(
+        "embedding_model",
+        "llm_model",
+    )
     @classmethod
-    def validate_model_name(cls, value: str) -> str:
+    def validate_model_name(
+        cls,
+        value: str,
+    ) -> str:
         normalized = value.strip()
+
         if not normalized:
-            raise ValueError("Model name cannot be empty")
+            raise ValueError(
+                "Model name cannot be empty"
+            )
+
+        return normalized
+
+    @field_validator(
+        "frontend_app_url",
+        "google_oauth_redirect_uri",
+    )
+    @classmethod
+    def validate_http_url(
+        cls,
+        value: str,
+    ) -> str:
+        normalized = value.strip()
+
+        if not normalized:
+            raise ValueError(
+                "URL cannot be empty"
+            )
+
+        parsed = urlsplit(normalized)
+
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+        ):
+            raise ValueError(
+                "URL must be an absolute HTTP or HTTPS URL"
+            )
+
         return normalized
 
     @model_validator(mode="after")
-    def validate_rag_configuration(self) -> "Settings":
+    def validate_rag_configuration(
+        self,
+    ) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
-            raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
-
-        if self.embedding_provider not in SUPPORTED_EMBEDDING_PROVIDERS:
-            supported = ", ".join(sorted(SUPPORTED_EMBEDDING_PROVIDERS))
             raise ValueError(
-                f"Unsupported EMBEDDING_PROVIDER "
-                f"{self.embedding_provider!r}. Supported providers: {supported}"
+                "CHUNK_OVERLAP must be smaller than CHUNK_SIZE"
             )
 
-        if self.llm_provider not in SUPPORTED_LLM_PROVIDERS:
-            supported = ", ".join(sorted(SUPPORTED_LLM_PROVIDERS))
+        if (
+            self.embedding_provider
+            not in SUPPORTED_EMBEDDING_PROVIDERS
+        ):
+            supported = ", ".join(
+                sorted(SUPPORTED_EMBEDDING_PROVIDERS)
+            )
             raise ValueError(
-                f"Unsupported LLM_PROVIDER "
-                f"{self.llm_provider!r}. Supported providers: {supported}"
+                "Unsupported EMBEDDING_PROVIDER "
+                f"{self.embedding_provider!r}. "
+                f"Supported providers: {supported}"
+            )
+
+        if (
+            self.llm_provider
+            not in SUPPORTED_LLM_PROVIDERS
+        ):
+            supported = ", ".join(
+                sorted(SUPPORTED_LLM_PROVIDERS)
+            )
+            raise ValueError(
+                "Unsupported LLM_PROVIDER "
+                f"{self.llm_provider!r}. "
+                f"Supported providers: {supported}"
             )
 
         return self
@@ -192,7 +351,9 @@ class Settings(BaseSettings):
             )
 
         if self.llm_provider in SUPPORTED_LLM_PROVIDERS:
-            missing["LLM_API_KEY"] = self.llm_api_key.get_secret_value()
+            missing["LLM_API_KEY"] = (
+                self.llm_api_key.get_secret_value()
+            )
 
         missing_names = [
             name
@@ -203,7 +364,80 @@ class Settings(BaseSettings):
         if missing_names:
             joined = ", ".join(missing_names)
             raise RuntimeError(
-                f"Missing required application settings: {joined}"
+                "Missing required application settings: "
+                f"{joined}"
+            )
+
+    def validate_google_calendar_configuration(
+        self,
+    ) -> None:
+        missing: dict[str, str] = {
+            "GOOGLE_OAUTH_CLIENT_ID": (
+                self.google_oauth_client_id
+            ),
+            "GOOGLE_OAUTH_CLIENT_SECRET": (
+                self.google_oauth_client_secret
+                .get_secret_value()
+            ),
+            "GOOGLE_OAUTH_REDIRECT_URI": (
+                self.google_oauth_redirect_uri
+            ),
+            "GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY": (
+                self.google_oauth_token_encryption_key
+                .get_secret_value()
+            ),
+        }
+
+        missing_names = [
+            name
+            for name, value in missing.items()
+            if not value.strip()
+        ]
+
+        if missing_names:
+            joined = ", ".join(missing_names)
+            raise RuntimeError(
+                "Google Calendar integration is not configured. "
+                f"Missing settings: {joined}"
+            )
+
+        redirect_uri = urlsplit(
+            self.google_oauth_redirect_uri
+        )
+
+        if (
+            self.app_env in {"staging", "production"}
+            and redirect_uri.scheme != "https"
+        ):
+            raise RuntimeError(
+                "GOOGLE_OAUTH_REDIRECT_URI must use HTTPS "
+                "outside development/test environments"
+            )
+
+        encryption_key = (
+            self.google_oauth_token_encryption_key
+            .get_secret_value()
+            .strip()
+        )
+
+        try:
+            decoded_key = urlsafe_b64decode(
+                encryption_key.encode("ascii")
+            )
+        except (
+            UnicodeEncodeError,
+            ValueError,
+            BinasciiError,
+        ) as exc:
+            raise RuntimeError(
+                "GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY must "
+                "be a valid Fernet key"
+            ) from exc
+
+        if len(decoded_key) != 32:
+            raise RuntimeError(
+                "GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY must "
+                "decode to exactly 32 bytes"
             )
 
 

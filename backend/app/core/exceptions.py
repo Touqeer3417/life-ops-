@@ -1,21 +1,37 @@
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import (
+    FastAPI,
+    Request,
+    status,
+)
 from fastapi.responses import JSONResponse
 
 
 class AppError(Exception):
     """Base class for expected application errors."""
 
-    def __init__(self, message: str, *, status_code: int, code: str) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        code: str,
+    ) -> None:
+        super().__init__(
+            message
+        )
+
         self.message = message
         self.status_code = status_code
         self.code = code
 
 
 class BadRequestError(AppError):
-    def __init__(self, message: str = "The request is invalid") -> None:
+    def __init__(
+        self,
+        message: str = "The request is invalid",
+    ) -> None:
         super().__init__(
             message,
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -24,7 +40,10 @@ class BadRequestError(AppError):
 
 
 class AuthenticationError(AppError):
-    def __init__(self, message: str = "Authentication is required") -> None:
+    def __init__(
+        self,
+        message: str = "Authentication is required",
+    ) -> None:
         super().__init__(
             message,
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -35,7 +54,10 @@ class AuthenticationError(AppError):
 class AuthorizationError(AppError):
     def __init__(
         self,
-        message: str = "You do not have permission to perform this action",
+        message: str = (
+            "You do not have permission "
+            "to perform this action"
+        ),
     ) -> None:
         super().__init__(
             message,
@@ -45,7 +67,10 @@ class AuthorizationError(AppError):
 
 
 class NotFoundError(AppError):
-    def __init__(self, message: str = "Resource not found") -> None:
+    def __init__(
+        self,
+        message: str = "Resource not found",
+    ) -> None:
         super().__init__(
             message,
             status_code=status.HTTP_404_NOT_FOUND,
@@ -54,7 +79,10 @@ class NotFoundError(AppError):
 
 
 class ConflictError(AppError):
-    def __init__(self, message: str = "Resource conflict") -> None:
+    def __init__(
+        self,
+        message: str = "Resource conflict",
+    ) -> None:
         super().__init__(
             message,
             status_code=status.HTTP_409_CONFLICT,
@@ -65,11 +93,16 @@ class ConflictError(AppError):
 class PayloadTooLargeError(AppError):
     def __init__(
         self,
-        message: str = "The uploaded file exceeds the maximum allowed size",
+        message: str = (
+            "The uploaded file exceeds "
+            "the maximum allowed size"
+        ),
     ) -> None:
         super().__init__(
             message,
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=(
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            ),
             code="payload_too_large",
         )
 
@@ -77,20 +110,30 @@ class PayloadTooLargeError(AppError):
 class UnsupportedMediaTypeError(AppError):
     def __init__(
         self,
-        message: str = "The uploaded file type is not supported",
+        message: str = (
+            "The uploaded file type "
+            "is not supported"
+        ),
     ) -> None:
         super().__init__(
             message,
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            status_code=(
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+            ),
             code="unsupported_media_type",
         )
 
 
 class ValidationError(AppError):
-    def __init__(self, message: str = "The supplied data is invalid") -> None:
+    def __init__(
+        self,
+        message: str = "The supplied data is invalid",
+    ) -> None:
         super().__init__(
             message,
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
             code="validation_error",
         )
 
@@ -98,11 +141,15 @@ class ValidationError(AppError):
 class DocumentProcessingError(AppError):
     def __init__(
         self,
-        message: str = "The document could not be processed",
+        message: str = (
+            "The document could not be processed"
+        ),
     ) -> None:
         super().__init__(
             message,
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
             code="document_processing_error",
         )
 
@@ -110,7 +157,9 @@ class DocumentProcessingError(AppError):
 class UpstreamServiceError(AppError):
     def __init__(
         self,
-        message: str = "An upstream service is unavailable",
+        message: str = (
+            "An upstream service is unavailable"
+        ),
     ) -> None:
         super().__init__(
             message,
@@ -122,24 +171,154 @@ class UpstreamServiceError(AppError):
 class ServiceUnavailableError(AppError):
     def __init__(
         self,
-        message: str = "The requested service is temporarily unavailable",
+        message: str = (
+            "The requested service is "
+            "temporarily unavailable"
+        ),
     ) -> None:
         super().__init__(
             message,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
             code="service_unavailable",
         )
 
 
-def register_exception_handlers(app: FastAPI) -> None:
-    @app.exception_handler(AppError)
+class OAuthConnectionRequiredError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Google Calendar is not connected. "
+            "Connect your Google account first."
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_409_CONFLICT,
+            code="oauth_connection_required",
+        )
+
+
+class OAuthReauthorizationRequiredError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Google authorization is no longer valid. "
+            "Reconnect your Google account."
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="oauth_reauthorization_required",
+        )
+
+
+class OAuthStateError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "The Google OAuth request is invalid, "
+            "expired, or has already been used"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="oauth_state_invalid",
+        )
+
+
+class OAuthAuthorizationDeniedError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Google authorization was not granted"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="oauth_authorization_denied",
+        )
+
+
+class OAuthInsufficientScopeError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "The Google connection does not have "
+            "the permissions required for this action"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="oauth_insufficient_scope",
+        )
+
+
+class OAuthTokenDecryptionError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Stored OAuth credentials could not be decrypted"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            code="oauth_token_decryption_error",
+        )
+
+
+class GoogleOAuthError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Google OAuth request failed"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="google_oauth_error",
+        )
+
+
+class GoogleCalendarError(AppError):
+    def __init__(
+        self,
+        message: str = (
+            "Google Calendar request failed"
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="google_calendar_error",
+        )
+
+
+def register_exception_handlers(
+    app: FastAPI,
+) -> None:
+    @app.exception_handler(
+        AppError
+    )
     async def handle_app_error(
         _: Request,
         exc: AppError,
     ) -> JSONResponse:
         headers = (
-            {"WWW-Authenticate": "Bearer"}
-            if exc.status_code == status.HTTP_401_UNAUTHORIZED
+            {
+                "WWW-Authenticate": "Bearer",
+            }
+            if exc.status_code
+            == status.HTTP_401_UNAUTHORIZED
             else None
         )
 
@@ -154,7 +333,9 @@ def register_exception_handlers(app: FastAPI) -> None:
             headers=headers,
         )
 
-    @app.exception_handler(Exception)
+    @app.exception_handler(
+        Exception
+    )
     async def handle_unexpected_error(
         request: Request,
         exc: Exception,
@@ -164,14 +345,24 @@ def register_exception_handlers(app: FastAPI) -> None:
             exc_info=exc,
         )
 
-        payload: dict[str, Any] = {
+        payload: dict[
+            str,
+            Any,
+        ] = {
             "error": {
-                "code": "internal_server_error",
-                "message": "An unexpected server error occurred",
+                "code": (
+                    "internal_server_error"
+                ),
+                "message": (
+                    "An unexpected server "
+                    "error occurred"
+                ),
             }
         }
 
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
             content=payload,
         )
