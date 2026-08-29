@@ -8,7 +8,9 @@ from app.schemas.chat import (
     RagChatRequest,
     RagChatResponse,
 )
-from app.services.rag_service import RagService
+from app.services.agent_service import (
+    AgentService,
+)
 
 
 router = APIRouter(
@@ -21,18 +23,23 @@ router = APIRouter(
     "",
     response_model=RagChatResponse,
 )
-async def rag_chat(
+async def lifeops_chat(
     payload: RagChatRequest,
     current_user: CurrentUserDep,
     session: SessionDep,
 ) -> RagChatResponse:
     """
-    Answer a question using only the authenticated user's indexed documents.
+    Run the authenticated LifeOps AI assistant.
 
-    This is Phase 2 standard RAG. It does not run agents, LangGraph workflows,
-    external tools, Gmail actions, Calendar actions, or autonomous execution.
+    The agent can autonomously choose between:
+    - the authenticated user's indexed documents;
+    - the authenticated user's connected Google Calendar.
+
+    Authentication and database scoping are resolved by
+    FastAPI dependencies before the agent is executed.
     """
-    return await RagService(
+
+    return await AgentService(
         session
     ).ask(
         current_user=current_user,

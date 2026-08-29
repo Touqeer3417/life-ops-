@@ -8,14 +8,18 @@ import {
 import {
   Bot,
   BookOpen,
+  CalendarDays,
   FileText,
   Loader2,
   MessageSquareText,
+  PlugZap,
   Send,
   Sparkles,
   UserRound,
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
+import remarkGfm from 'remark-gfm'
 
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -28,9 +32,9 @@ import type {
 
 
 const EXAMPLE_QUESTIONS = [
+  'What events do I have this week?',
+  'Am I free tomorrow from 4 PM to 5 PM?',
   'Summarize the key information in my documents.',
-  'What important dates are mentioned in my documents?',
-  'What policies or rules are described in my knowledge base?',
 ]
 
 
@@ -41,8 +45,10 @@ export function RagChatPage() {
   const [messages, setMessages] =
     useState<ChatMessage[]>([])
 
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null)
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState<string | null>(null)
 
   const messagesEndRef =
     useRef<HTMLDivElement>(null)
@@ -54,7 +60,10 @@ export function RagChatPage() {
     messagesEndRef.current?.scrollIntoView({
       behavior: 'smooth',
     })
-  }, [messages, ragChat.isPending])
+  }, [
+    messages,
+    ragChat.isPending,
+  ])
 
   const submitQuestion = async (
     rawQuestion: string,
@@ -77,43 +86,56 @@ export function RagChatPage() {
       role: 'user',
       content: normalizedQuestion,
       citations: [],
-      created_at: new Date().toISOString(),
+      created_at:
+        new Date().toISOString(),
     }
 
-    setMessages((current) => [
-      ...current,
-      userMessage,
-    ])
+    setMessages(
+      (current) => [
+        ...current,
+        userMessage,
+      ],
+    )
 
     try {
       const response =
         await ragChat.mutateAsync({
-          question: normalizedQuestion,
+          question:
+            normalizedQuestion,
         })
 
-      const assistantMessage: ChatMessage = {
-        id: createMessageId(),
-        role: 'assistant',
-        content: response.answer,
-        citations: response.citations,
-        context_found:
-          response.context_found,
-        created_at: new Date().toISOString(),
-      }
+      const assistantMessage:
+        ChatMessage = {
+          id: createMessageId(),
+          role: 'assistant',
+          content:
+            response.answer,
+          citations:
+            response.citations,
+          context_found:
+            response.context_found,
+          created_at:
+            new Date().toISOString(),
+        }
 
-      setMessages((current) => [
-        ...current,
-        assistantMessage,
-      ])
+      setMessages(
+        (current) => [
+          ...current,
+          assistantMessage,
+        ],
+      )
     } catch (error) {
       setErrorMessage(
-        getErrorMessage(error),
+        getErrorMessage(
+          error,
+        ),
       )
     }
   }
 
   const handleSubmit = (
-    event: FormEvent<HTMLFormElement>,
+    event:
+      FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault()
 
@@ -126,38 +148,59 @@ export function RagChatPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-semibold text-sky-700">
-            Phase 2 · Standard RAG
-          </p>
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+            <Sparkles
+              className="h-3.5 w-3.5"
+              aria-hidden="true"
+            />
 
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-            Ask your documents
+            Agentic LifeOps
+          </div>
+
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            LifeOps Assistant
           </h1>
 
           <p className="mt-3 max-w-3xl text-slate-600">
-            Ask questions about your uploaded knowledge
-            base. Answers are generated from retrieved
-            document context and include source citations.
+            Ask about your uploaded
+            documents or Google Calendar.
+            LifeOps AI automatically chooses
+            the correct tool for your request.
           </p>
         </div>
 
-        <Link
-          to="/app/documents"
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-        >
-          <BookOpen
-            className="h-4 w-4"
-            aria-hidden="true"
-          />
-          Manage documents
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/app/documents"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+          >
+            <BookOpen
+              className="h-4 w-4"
+              aria-hidden="true"
+            />
+
+            Documents
+          </Link>
+
+          <Link
+            to="/app/calendar"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+          >
+            <CalendarDays
+              className="h-4 w-4"
+              aria-hidden="true"
+            />
+
+            Calendar
+          </Link>
+        </div>
       </section>
 
       <div className="grid min-h-[650px] gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Card className="flex min-h-[650px] flex-col p-0">
           <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-sky-50 p-2.5 text-sky-700">
+              <div className="rounded-xl bg-violet-50 p-2.5 text-violet-700">
                 <MessageSquareText
                   className="h-5 w-5"
                   aria-hidden="true"
@@ -166,18 +209,20 @@ export function RagChatPage() {
 
               <div>
                 <h2 className="font-bold text-slate-950">
-                  Document assistant
+                  Personal life assistant
                 </h2>
 
                 <p className="text-xs text-slate-500">
-                  Grounded in your indexed documents
+                  Documents + Google
+                  Calendar
                 </p>
               </div>
             </div>
 
             <div className="hidden items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 sm:flex">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              RAG ready
+
+              Agent ready
             </div>
           </div>
 
@@ -192,15 +237,21 @@ export function RagChatPage() {
                       example,
                     )
                   }
-                  disabled={ragChat.isPending}
+                  disabled={
+                    ragChat.isPending
+                  }
                 />
               ) : (
                 <div className="space-y-6">
                   {messages.map(
                     (message) => (
                       <MessageBubble
-                        key={message.id}
-                        message={message}
+                        key={
+                          message.id
+                        }
+                        message={
+                          message
+                        }
                       />
                     ),
                   )}
@@ -212,7 +263,9 @@ export function RagChatPage() {
               )}
 
               <div
-                ref={messagesEndRef}
+                ref={
+                  messagesEndRef
+                }
                 aria-hidden="true"
               />
             </div>
@@ -224,20 +277,30 @@ export function RagChatPage() {
             ) : null}
 
             <form
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleSubmit
+              }
               className="border-t border-slate-200 bg-white p-4 sm:p-5"
             >
               <div className="flex items-end gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100">
                 <textarea
-                  value={question}
-                  onChange={(event) =>
+                  value={
+                    question
+                  }
+                  onChange={(
+                    event,
+                  ) =>
                     setQuestion(
-                      event.target.value,
+                      event.target
+                        .value,
                     )
                   }
-                  onKeyDown={(event) => {
+                  onKeyDown={(
+                    event,
+                  ) => {
                     if (
-                      event.key === 'Enter' &&
+                      event.key ===
+                        'Enter' &&
                       !event.shiftKey
                     ) {
                       event.preventDefault()
@@ -249,8 +312,10 @@ export function RagChatPage() {
                   }}
                   rows={2}
                   maxLength={4000}
-                  placeholder="Ask something about your documents…"
-                  disabled={ragChat.isPending}
+                  placeholder="Ask about your documents, schedule, events, or availability…"
+                  disabled={
+                    ragChat.isPending
+                  }
                   className="max-h-40 min-h-[52px] flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
                 />
 
@@ -279,12 +344,14 @@ export function RagChatPage() {
 
               <div className="mt-2 flex items-center justify-between gap-4 text-xs text-slate-400">
                 <span>
-                  Enter to send · Shift + Enter
-                  for a new line
+                  Enter to send ·
+                  Shift + Enter for a
+                  new line
                 </span>
 
                 <span>
-                  {question.length}/4000
+                  {question.length}
+                  /4000
                 </span>
               </div>
             </form>
@@ -292,8 +359,123 @@ export function RagChatPage() {
         </Card>
 
         <aside className="space-y-4">
-        
-        
+          <Card className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-violet-50 p-2.5 text-violet-700">
+                <Sparkles
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div>
+                <h2 className="font-bold text-slate-950">
+                  Agent tools
+                </h2>
+
+                <p className="text-xs text-slate-500">
+                  Selected automatically
+                </p>
+              </div>
+            </div>
+
+            <ul className="mt-5 space-y-5">
+              <PipelineStep
+                number={1}
+                title="Understand"
+                description="The model determines whether your request needs documents, Calendar, or both."
+              />
+
+              <PipelineStep
+                number={2}
+                title="Use tools"
+                description="LifeOps securely queries your own indexed data or connected Google Calendar."
+              />
+
+              <PipelineStep
+                number={3}
+                title="Respond"
+                description="The assistant converts grounded tool results into a clear answer."
+              />
+            </ul>
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Available knowledge
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <Link
+                to="/app/documents"
+                className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:bg-slate-50"
+              >
+                <div className="rounded-lg bg-sky-50 p-2 text-sky-700">
+                  <FileText
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Documents
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    RAG knowledge
+                    base
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                to="/app/calendar"
+                className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:bg-slate-50"
+              >
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
+                  <CalendarDays
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Google Calendar
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Events and
+                    availability
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                to="/app/integrations"
+                className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 transition hover:bg-slate-50"
+              >
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-700">
+                  <PlugZap
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Integrations
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Manage Google
+                    connection
+                  </p>
+                </div>
+              </Link>
+            </div>
+          </Card>
         </aside>
       </div>
     </div>
@@ -312,21 +494,33 @@ function EmptyChatState({
 }) {
   return (
     <div className="flex min-h-[430px] flex-col items-center justify-center px-2 text-center">
-      <div className="rounded-2xl bg-sky-50 p-4">
-        <Bot
-          className="h-8 w-8 text-sky-700"
-          aria-hidden="true"
-        />
+      <div className="relative">
+        <div className="rounded-2xl bg-violet-50 p-4">
+          <Bot
+            className="h-8 w-8 text-violet-700"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div className="absolute -right-2 -top-2 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-100">
+          <Sparkles
+            className="h-3.5 w-3.5 text-amber-500"
+            aria-hidden="true"
+          />
+        </div>
       </div>
 
       <h2 className="mt-5 text-xl font-bold text-slate-950">
-        Ask your knowledge base
+        What can I help you
+        manage?
       </h2>
 
       <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500">
-        Upload documents first, then ask specific
-        questions. LifeOps AI retrieves the most relevant
-        chunks before generating an answer.
+        Ask naturally. LifeOps AI
+        can search your uploaded
+        documents, inspect your
+        Calendar, check availability,
+        and manage Calendar events.
       </p>
 
       <div className="mt-7 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
@@ -335,13 +529,15 @@ function EmptyChatState({
             <button
               key={example}
               type="button"
-              disabled={disabled}
+              disabled={
+                disabled
+              }
               onClick={() =>
                 onQuestionSelect(
                   example,
                 )
               }
-              className="rounded-xl border border-slate-200 bg-white p-4 text-left text-sm leading-5 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-slate-200 bg-white p-4 text-left text-sm leading-5 text-slate-700 transition hover:border-violet-200 hover:bg-violet-50/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {example}
             </button>
@@ -364,14 +560,14 @@ function MessageBubble({
   return (
     <div
       className={[
-        'flex gap-3',
+        'flex min-w-0 gap-3',
         isUser
           ? 'justify-end'
           : 'justify-start',
       ].join(' ')}
     >
       {!isUser ? (
-        <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+        <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
           <Bot
             className="h-4 w-4"
             aria-hidden="true"
@@ -381,7 +577,7 @@ function MessageBubble({
 
       <div
         className={[
-          'max-w-[85%] sm:max-w-[78%]',
+          'min-w-0 max-w-[92%] sm:max-w-[85%]',
           isUser
             ? 'order-first'
             : '',
@@ -389,19 +585,28 @@ function MessageBubble({
       >
         <div
           className={[
-            'rounded-2xl px-4 py-3 text-sm leading-6',
+            'min-w-0 overflow-hidden rounded-2xl px-4 py-3 text-sm leading-6',
             isUser
               ? 'rounded-br-md bg-slate-950 text-white'
               : 'rounded-bl-md border border-slate-200 bg-slate-50 text-slate-700',
           ].join(' ')}
         >
-          <p className="whitespace-pre-wrap">
-            {message.content}
-          </p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
+          ) : (
+            <MarkdownMessage
+              content={
+                message.content
+              }
+            />
+          )}
         </div>
 
         {!isUser &&
-        message.citations.length > 0 ? (
+        message.citations.length >
+          0 ? (
           <CitationList
             citations={
               message.citations
@@ -410,10 +615,13 @@ function MessageBubble({
         ) : null}
 
         {!isUser &&
-        message.context_found === false ? (
+        message.context_found ===
+          false ? (
           <p className="mt-2 text-xs text-amber-600">
-            No sufficiently relevant document
-            context was found.
+            No sufficiently
+            relevant information
+            was found in your
+            uploaded documents.
           </p>
         ) : null}
       </div>
@@ -431,6 +639,190 @@ function MessageBubble({
 }
 
 
+function MarkdownMessage({
+  content,
+}: {
+  content: string
+}) {
+  return (
+    <div className="min-w-0 max-w-full overflow-hidden">
+      <ReactMarkdown
+        remarkPlugins={[
+          remarkGfm,
+        ]}
+        components={{
+          h1: ({
+            children,
+          }) => (
+            <h1 className="mb-3 mt-1 break-words text-xl font-bold tracking-tight text-slate-950">
+              {children}
+            </h1>
+          ),
+
+          h2: ({
+            children,
+          }) => (
+            <h2 className="mb-3 mt-4 break-words text-lg font-bold text-slate-950 first:mt-0">
+              {children}
+            </h2>
+          ),
+
+          h3: ({
+            children,
+          }) => (
+            <h3 className="mb-2 mt-5 break-words text-[15px] font-bold text-slate-900 first:mt-0">
+              {children}
+            </h3>
+          ),
+
+          h4: ({
+            children,
+          }) => (
+            <h4 className="mb-2 mt-4 break-words text-sm font-bold text-slate-900">
+              {children}
+            </h4>
+          ),
+
+          p: ({
+            children,
+          }) => (
+            <p className="my-2 break-words leading-6 text-slate-700 first:mt-0 last:mb-0">
+              {children}
+            </p>
+          ),
+
+          strong: ({
+            children,
+          }) => (
+            <strong className="font-semibold text-slate-950">
+              {children}
+            </strong>
+          ),
+
+          em: ({
+            children,
+          }) => (
+            <em className="italic text-slate-700">
+              {children}
+            </em>
+          ),
+
+          ol: ({
+            children,
+          }) => (
+            <ol className="my-3 list-decimal space-y-3 pl-6">
+              {children}
+            </ol>
+          ),
+
+          ul: ({
+            children,
+          }) => (
+            <ul className="my-3 list-disc space-y-2 pl-6">
+              {children}
+            </ul>
+          ),
+
+          li: ({
+            children,
+          }) => (
+            <li className="break-words pl-1 leading-6 text-slate-700 marker:font-semibold marker:text-slate-500">
+              {children}
+            </li>
+          ),
+
+          a: ({
+            href,
+            children,
+          }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-words font-semibold text-violet-700 underline decoration-violet-300 underline-offset-2 transition hover:text-violet-900"
+            >
+              {children}
+            </a>
+          ),
+
+          blockquote: ({
+            children,
+          }) => (
+            <blockquote className="my-3 border-l-4 border-violet-200 bg-violet-50/50 px-4 py-2 text-slate-600">
+              {children}
+            </blockquote>
+          ),
+
+          code: ({
+            children,
+          }) => (
+            <code className="break-all rounded-md bg-slate-200/70 px-1.5 py-0.5 font-mono text-[0.85em] text-slate-800">
+              {children}
+            </code>
+          ),
+
+          pre: ({
+            children,
+          }) => (
+            <pre className="my-3 max-w-full overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+              {children}
+            </pre>
+          ),
+
+          hr: () => (
+            <hr className="my-4 border-slate-200" />
+          ),
+
+          table: ({
+            children,
+          }) => (
+            <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+
+          thead: ({
+            children,
+          }) => (
+            <thead className="bg-slate-50">
+              {children}
+            </thead>
+          ),
+
+          tbody: ({
+            children,
+          }) => (
+            <tbody className="divide-y divide-slate-100">
+              {children}
+            </tbody>
+          ),
+
+          th: ({
+            children,
+          }) => (
+            <th className="whitespace-nowrap px-3 py-2 font-semibold text-slate-900">
+              {children}
+            </th>
+          ),
+
+          td: ({
+            children,
+          }) => (
+            <td className="px-3 py-2 text-slate-700">
+              {children}
+            </td>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
+
 function CitationList({
   citations,
 }: {
@@ -439,20 +831,28 @@ function CitationList({
   return (
     <div className="mt-3 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Sources
+        Document sources
       </p>
 
       {citations.map(
-        (citation, index) => (
+        (
+          citation,
+          index,
+        ) => (
           <details
-            key={citation.chunk_id}
+            key={
+              citation.chunk_id
+            }
             className="rounded-xl border border-slate-200 bg-white"
           >
             <summary className="cursor-pointer list-none px-3 py-2.5 text-xs font-semibold text-slate-700">
               <span className="flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate">
-                  [Source {index + 1}]{' '}
-                  {citation.filename}
+                  [Source{' '}
+                  {index + 1}]{' '}
+                  {
+                    citation.filename
+                  }
                 </span>
 
                 <span className="shrink-0 text-slate-400">
@@ -485,7 +885,9 @@ function CitationList({
               </div>
 
               <p className="mt-2 text-xs leading-5 text-slate-600">
-                {citation.excerpt}
+                {
+                  citation.excerpt
+                }
               </p>
             </div>
           </details>
@@ -499,7 +901,7 @@ function CitationList({
 function AssistantLoadingMessage() {
   return (
     <div className="flex gap-3">
-      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
         <Bot
           className="h-4 w-4"
           aria-hidden="true"
@@ -512,7 +914,9 @@ function AssistantLoadingMessage() {
             className="h-4 w-4 animate-spin"
             aria-hidden="true"
           />
-          Searching your documents…
+
+          Thinking and checking
+          your LifeOps tools…
         </div>
       </div>
     </div>
@@ -551,7 +955,8 @@ function PipelineStep({
 
 function createMessageId(): string {
   if (
-    typeof crypto !== 'undefined' &&
+    typeof crypto !==
+      'undefined' &&
     'randomUUID' in crypto
   ) {
     return crypto.randomUUID()
@@ -573,5 +978,5 @@ function getErrorMessage(
     return error.message
   }
 
-  return 'Unable to generate a RAG response.'
+  return 'Unable to complete the LifeOps AI request.'
 }

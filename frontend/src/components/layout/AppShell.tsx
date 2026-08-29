@@ -135,27 +135,7 @@ export function AppShell() {
             )}
           </nav>
 
-          <div className="mt-auto px-2 pb-2 pt-8">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center gap-2">
-                <ShieldCheck
-                  className="h-4 w-4 text-emerald-600"
-                  aria-hidden="true"
-                />
-
-                <p className="text-xs font-semibold text-slate-800">
-                  Secure integrations
-                </p>
-              </div>
-
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                Auth0 handles your LifeOps
-                identity while Google OAuth
-                permissions remain separate
-                and server-managed.
-              </p>
-            </div>
-          </div>
+       
         </aside>
 
         <div className="min-w-0 flex-1">
