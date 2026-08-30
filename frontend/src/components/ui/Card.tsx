@@ -1,10 +1,33 @@
-import type { HTMLAttributes, PropsWithChildren } from 'react'
+import type {
+  HTMLAttributes,
+  PropsWithChildren,
+} from 'react'
+
 import { cn } from '@/utils/cn'
 
-export function Card({ className, children, ...props }: PropsWithChildren<HTMLAttributes<HTMLDivElement>>) {
+
+export function Card({
+  className,
+  children,
+  ...props
+}: PropsWithChildren<
+  HTMLAttributes<HTMLDivElement>
+>) {
   return (
     <div
-      className={cn('rounded-2xl border border-slate-200 bg-white p-5 shadow-sm', className)}
+      className={cn(
+        [
+          'relative rounded-[22px]',
+          'border border-white/[0.075]',
+          'bg-[#0a0d13]/82 p-5',
+          'text-slate-100',
+          'shadow-[0_22px_65px_-42px_rgba(0,0,0,0.95)]',
+          'backdrop-blur-xl',
+          'transition-[border-color,background-color,box-shadow]',
+          'duration-300',
+        ].join(' '),
+        className,
+      )}
       {...props}
     >
       {children}
