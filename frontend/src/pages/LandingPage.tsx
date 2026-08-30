@@ -642,9 +642,7 @@ export function LandingPage() {
                     Knowledge today. A true personal operations agent tomorrow.
                   </h2>
                 </div>
-                <p className="max-w-lg text-sm leading-7 text-slate-500">
-                  The current product establishes the secure account + RAG foundation. The roadmap layers in the systems that create real daily leverage.
-                </p>
+               
               </motion.div>
 
               <motion.div

@@ -2,13 +2,19 @@ import hashlib
 import uuid
 from io import BytesIO
 from pathlib import Path
-from zipfile import BadZipFile, ZipFile
+from zipfile import (
+    BadZipFile,
+    ZipFile,
+)
 
 from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings, get_settings
+from app.core.config import (
+    Settings,
+    get_settings,
+)
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -19,10 +25,19 @@ from app.core.exceptions import (
 )
 from app.models.document import Document
 from app.models.user import User
-from app.rag.parsers import get_extension, parse_document
+from app.rag.parsers import (
+    get_extension,
+    parse_document,
+)
 from app.rag.providers import (
     EmbeddingProvider,
+    LLMProvider,
     create_embedding_provider,
+    create_llm_provider,
+)
+from app.rag.retrieval import (
+    AdvancedRetriever,
+    expand_parent_chunks,
 )
 from app.rag.storage import LocalFileStorage
 from app.rag.text import chunk_document
@@ -42,7 +57,10 @@ from app.schemas.document import (
 )
 
 
-_ALLOWED_MIME_TYPES: dict[str, frozenset[str]] = {
+_ALLOWED_MIME_TYPES: dict[
+    str,
+    frozenset[str],
+] = {
     ".pdf": frozenset(
         {
             "application/pdf",
@@ -52,8 +70,11 @@ _ALLOWED_MIME_TYPES: dict[str, frozenset[str]] = {
     ),
     ".docx": frozenset(
         {
-            "application/vnd.openxmlformats-officedocument."
-            "wordprocessingml.document",
+            (
+                "application/vnd."
+                "openxmlformats-officedocument."
+                "wordprocessingml.document"
+            ),
             "application/zip",
             "application/octet-stream",
         }
@@ -82,18 +103,97 @@ class DocumentService:
         settings: Settings | None = None,
     ) -> None:
         self.session = session
-        self.settings = settings or get_settings()
-        self.repository = DocumentRepository(session)
-        self.storage = LocalFileStorage(self.settings)
-        self._embedding_provider: EmbeddingProvider | None = None
 
-    @property
-    def embedding_provider(self) -> EmbeddingProvider:
-        if self._embedding_provider is None:
-            self._embedding_provider = create_embedding_provider(
+        self.settings = (
+            settings
+            or get_settings()
+        )
+
+        self.repository = (
+            DocumentRepository(
+                session
+            )
+        )
+
+        self.storage = (
+            LocalFileStorage(
                 self.settings
             )
+        )
+
+        self._embedding_provider: (
+            EmbeddingProvider
+            | None
+        ) = None
+
+        self._llm_provider: (
+            LLMProvider
+            | None
+        ) = None
+
+        self._advanced_retriever: (
+            AdvancedRetriever
+            | None
+        ) = None
+
+    @property
+    def embedding_provider(
+        self,
+    ) -> EmbeddingProvider:
+        if (
+            self._embedding_provider
+            is None
+        ):
+            self._embedding_provider = (
+                create_embedding_provider(
+                    self.settings
+                )
+            )
+
         return self._embedding_provider
+
+    @property
+    def llm_provider(
+        self,
+    ) -> LLMProvider:
+        if (
+            self._llm_provider
+            is None
+        ):
+            self._llm_provider = (
+                create_llm_provider(
+                    self.settings
+                )
+            )
+
+        return self._llm_provider
+
+    @property
+    def advanced_retriever(
+        self,
+    ) -> AdvancedRetriever:
+        if (
+            self._advanced_retriever
+            is None
+        ):
+            self._advanced_retriever = (
+                AdvancedRetriever(
+                    repository=(
+                        self.repository
+                    ),
+                    embedding_provider=(
+                        self.embedding_provider
+                    ),
+                    llm_provider=(
+                        self.llm_provider
+                    ),
+                    settings=(
+                        self.settings
+                    ),
+                )
+            )
+
+        return self._advanced_retriever
 
     async def upload_document(
         self,
@@ -101,9 +201,12 @@ class DocumentService:
         current_user: User,
         upload: UploadFile,
     ) -> DocumentUploadResponse:
-        original_filename = self._normalize_filename(
-            upload.filename
+        original_filename = (
+            self._normalize_filename(
+                upload.filename
+            )
         )
+
         extension = get_extension(
             original_filename
         )
@@ -111,13 +214,18 @@ class DocumentService:
         self._validate_extension(
             extension
         )
+
         self._validate_mime_type(
             extension=extension,
-            content_type=upload.content_type,
+            content_type=(
+                upload.content_type
+            ),
         )
 
-        file_bytes = await self._read_upload(
-            upload
+        file_bytes = (
+            await self._read_upload(
+                upload
+            )
         )
 
         self._validate_content_signature(
@@ -129,37 +237,66 @@ class DocumentService:
             file_bytes
         ).hexdigest()
 
-        existing = await self.repository.get_by_checksum(
-            user_id=current_user.id,
-            checksum=checksum,
+        existing = (
+            await self.repository
+            .get_by_checksum(
+                user_id=(
+                    current_user.id
+                ),
+                checksum=checksum,
+            )
         )
 
         if existing is not None:
             raise ConflictError(
-                "This document has already been uploaded"
+                "This document has already "
+                "been uploaded"
             )
 
-        stored_file = await self.storage.save(
-            user_id=current_user.id,
-            file_bytes=file_bytes,
-            extension=extension,
+        stored_file = (
+            await self.storage.save(
+                user_id=(
+                    current_user.id
+                ),
+                file_bytes=file_bytes,
+                extension=extension,
+            )
         )
 
         document: Document | None = None
 
         try:
-            document = await self.repository.create(
-                user_id=current_user.id,
-                original_filename=original_filename,
-                stored_filename=stored_file.stored_filename,
-                stored_path=stored_file.stored_path,
-                mime_type=self._normalized_mime_type(
-                    upload.content_type,
-                    extension,
-                ),
-                file_extension=extension,
-                file_size=len(file_bytes),
-                checksum=checksum,
+            document = (
+                await self.repository
+                .create(
+                    user_id=(
+                        current_user.id
+                    ),
+                    original_filename=(
+                        original_filename
+                    ),
+                    stored_filename=(
+                        stored_file
+                        .stored_filename
+                    ),
+                    stored_path=(
+                        stored_file
+                        .stored_path
+                    ),
+                    mime_type=(
+                        self._normalized_mime_type(
+                            upload.content_type,
+                            extension,
+                        )
+                    ),
+                    file_extension=(
+                        extension
+                    ),
+                    file_size=(
+                        len(file_bytes)
+                    ),
+                    checksum=checksum,
+                )
             )
 
             await self.session.commit()
@@ -172,7 +309,8 @@ class DocumentService:
             )
 
             raise ConflictError(
-                "This document has already been uploaded"
+                "This document has already "
+                "been uploaded"
             ) from exc
 
         except Exception:
@@ -185,40 +323,78 @@ class DocumentService:
             raise
 
         try:
-            parsed_document = parse_document(
-                file_bytes=file_bytes,
-                filename=original_filename,
-                extension=extension,
+            parsed_document = (
+                parse_document(
+                    file_bytes=file_bytes,
+                    filename=(
+                        original_filename
+                    ),
+                    extension=extension,
+                )
             )
 
-            prepared_chunks = chunk_document(
-                parsed_document=parsed_document,
-                filename=original_filename,
-                chunk_size=self.settings.chunk_size,
-                chunk_overlap=self.settings.chunk_overlap,
+            prepared_chunks = (
+                chunk_document(
+                    parsed_document=(
+                        parsed_document
+                    ),
+                    filename=(
+                        original_filename
+                    ),
+                    chunk_size=(
+                        self.settings
+                        .chunk_size
+                    ),
+                    chunk_overlap=(
+                        self.settings
+                        .chunk_overlap
+                    ),
+                    parent_chunk_size=(
+                        self.settings
+                        .parent_chunk_size
+                    ),
+                    parent_chunk_overlap=(
+                        self.settings
+                        .parent_chunk_overlap
+                    ),
+                    table_parent_max_rows=(
+                        self.settings
+                        .table_parent_max_rows
+                    ),
+                )
             )
 
             texts = [
                 chunk.content
-                for chunk in prepared_chunks
+                for chunk
+                in prepared_chunks
             ]
 
             embeddings = (
-                await self.embedding_provider.embed_documents(
+                await self
+                .embedding_provider
+                .embed_documents(
                     texts
                 )
             )
 
-            if len(embeddings) != len(prepared_chunks):
+            if (
+                len(embeddings)
+                != len(prepared_chunks)
+            ):
                 raise DocumentProcessingError(
-                    "Document embeddings could not be generated correctly"
+                    "Document embeddings could "
+                    "not be generated correctly"
                 )
 
             chunk_records: list[
                 DocumentChunkCreate
             ] = []
 
-            for prepared_chunk, embedding in zip(
+            for (
+                prepared_chunk,
+                embedding,
+            ) in zip(
                 prepared_chunks,
                 embeddings,
                 strict=True,
@@ -229,24 +405,52 @@ class DocumentService:
 
                 metadata.update(
                     {
-                        "document_id": str(document.id),
-                        "filename": original_filename,
-                        "source": prepared_chunk.source,
+                        "document_id": (
+                            str(
+                                document.id
+                            )
+                        ),
+                        "filename": (
+                            original_filename
+                        ),
+                        "source": (
+                            prepared_chunk
+                            .source
+                        ),
                     }
                 )
 
-                if prepared_chunk.page_number is not None:
-                    metadata["page_number"] = (
-                        prepared_chunk.page_number
+                if (
+                    prepared_chunk
+                    .page_number
+                    is not None
+                ):
+                    metadata[
+                        "page_number"
+                    ] = (
+                        prepared_chunk
+                        .page_number
                     )
 
                 chunk_records.append(
                     DocumentChunkCreate(
-                        chunk_index=prepared_chunk.chunk_index,
-                        content=prepared_chunk.content,
+                        chunk_index=(
+                            prepared_chunk
+                            .chunk_index
+                        ),
+                        content=(
+                            prepared_chunk
+                            .content
+                        ),
                         embedding=embedding,
-                        page_number=prepared_chunk.page_number,
-                        source=prepared_chunk.source,
+                        page_number=(
+                            prepared_chunk
+                            .page_number
+                        ),
+                        source=(
+                            prepared_chunk
+                            .source
+                        ),
                         metadata=metadata,
                     )
                 )
@@ -266,35 +470,55 @@ class DocumentService:
             await self.session.rollback()
 
             await self._persist_failed_status(
-                user_id=current_user.id,
-                document_id=document.id,
+                user_id=(
+                    current_user.id
+                ),
+                document_id=(
+                    document.id
+                ),
                 exc=exc,
             )
 
-            if isinstance(exc, AppError):
+            if isinstance(
+                exc,
+                AppError,
+            ):
                 raise
 
             raise DocumentProcessingError(
-                "The document could not be indexed"
+                "The document could "
+                "not be indexed"
             ) from exc
 
         indexed_document = (
-            await self.repository.get_by_id(
-                user_id=current_user.id,
-                document_id=document.id,
+            await self.repository
+            .get_by_id(
+                user_id=(
+                    current_user.id
+                ),
+                document_id=(
+                    document.id
+                ),
             )
         )
 
         if indexed_document is None:
             raise DocumentProcessingError(
-                "The indexed document could not be loaded"
+                "The indexed document "
+                "could not be loaded"
             )
 
         return DocumentUploadResponse(
-            document=DocumentRead.model_validate(
-                indexed_document
+            document=(
+                DocumentRead
+                .model_validate(
+                    indexed_document
+                )
             ),
-            message="Document uploaded and indexed successfully",
+            message=(
+                "Document uploaded and "
+                "indexed successfully"
+            ),
         )
 
     async def list_documents(
@@ -303,19 +527,28 @@ class DocumentService:
         current_user: User,
         search: str | None = None,
     ) -> DocumentListResponse:
-        documents = await self.repository.list_for_user(
-            user_id=current_user.id,
-            search=search,
+        documents = (
+            await self.repository
+            .list_for_user(
+                user_id=(
+                    current_user.id
+                ),
+                search=search,
+            )
         )
 
         return DocumentListResponse(
             documents=[
-                DocumentRead.model_validate(
+                DocumentRead
+                .model_validate(
                     document
                 )
-                for document in documents
+                for document
+                in documents
             ],
-            total=len(documents),
+            total=len(
+                documents
+            ),
         )
 
     async def get_document(
@@ -324,9 +557,16 @@ class DocumentService:
         current_user: User,
         document_id: uuid.UUID,
     ) -> DocumentDetailRead:
-        document = await self.repository.get_by_id(
-            user_id=current_user.id,
-            document_id=document_id,
+        document = (
+            await self.repository
+            .get_by_id(
+                user_id=(
+                    current_user.id
+                ),
+                document_id=(
+                    document_id
+                ),
+            )
         )
 
         if document is None:
@@ -334,14 +574,25 @@ class DocumentService:
                 "Document not found"
             )
 
-        chunk_count = await self.repository.count_chunks(
-            user_id=current_user.id,
-            document_id=document.id,
+        chunk_count = (
+            await self.repository
+            .count_chunks(
+                user_id=(
+                    current_user.id
+                ),
+                document_id=(
+                    document.id
+                ),
+            )
         )
 
-        data = DocumentRead.model_validate(
-            document
-        ).model_dump()
+        data = (
+            DocumentRead
+            .model_validate(
+                document
+            )
+            .model_dump()
+        )
 
         return DocumentDetailRead(
             **data,
@@ -354,9 +605,16 @@ class DocumentService:
         current_user: User,
         document_id: uuid.UUID,
     ) -> DocumentDeleteResponse:
-        document = await self.repository.get_by_id(
-            user_id=current_user.id,
-            document_id=document_id,
+        document = (
+            await self.repository
+            .get_by_id(
+                user_id=(
+                    current_user.id
+                ),
+                document_id=(
+                    document_id
+                ),
+            )
         )
 
         if document is None:
@@ -364,7 +622,9 @@ class DocumentService:
                 "Document not found"
             )
 
-        stored_path = document.stored_path
+        stored_path = (
+            document.stored_path
+        )
 
         try:
             await self.storage.delete(
@@ -383,7 +643,9 @@ class DocumentService:
 
         return DocumentDeleteResponse(
             id=document_id,
-            message="Document deleted successfully",
+            message=(
+                "Document deleted successfully"
+            ),
         )
 
     async def search_documents(
@@ -392,9 +654,31 @@ class DocumentService:
         current_user: User,
         payload: DocumentSearchRequest,
     ) -> DocumentSearchResponse:
+        """
+        Advanced semantic document search.
+
+        Unlike the original implementation, this endpoint
+        now uses exactly the same quality pipeline as RAG:
+
+        query rewrite
+            +
+        HyDE
+            ↓
+        multi-vector retrieval
+            ↓
+        deduplication
+            ↓
+        CrossEncoder
+            ↓
+        parent expansion
+        """
+
         has_documents = (
-            await self.repository.has_indexed_documents(
-                user_id=current_user.id
+            await self.repository
+            .has_indexed_documents(
+                user_id=(
+                    current_user.id
+                )
             )
         )
 
@@ -405,45 +689,87 @@ class DocumentService:
                 total=0,
             )
 
-        query_embedding = (
-            await self.embedding_provider.embed_query(
-                payload.query
+        final_top_k = (
+            payload.top_k
+            or self.settings
+            .retrieval_top_k
+        )
+
+        # More child hits are requested because several
+        # high-scoring children may belong to one parent.
+        child_pool_size = min(
+            self.settings
+            .reranker_candidate_limit,
+            max(
+                final_top_k,
+                final_top_k * 3,
+            ),
+        )
+
+        retrieval = (
+            await self
+            .advanced_retriever
+            .retrieve(
+                user_id=(
+                    current_user.id
+                ),
+                question=(
+                    payload.query
+                ),
+                top_k=(
+                    child_pool_size
+                ),
             )
         )
 
-        retrieved = (
-            await self.repository.semantic_search(
-                user_id=current_user.id,
-                query_embedding=query_embedding,
-                top_k=(
-                    payload.top_k
-                    or self.settings.retrieval_top_k
-                ),
-                similarity_threshold=(
-                    self.settings
-                    .retrieval_similarity_threshold
+        parents = (
+            expand_parent_chunks(
+                retrieval.chunks,
+                limit=(
+                    final_top_k
                 ),
             )
         )
 
         results = [
             DocumentSearchResult(
-                chunk_id=chunk.chunk_id,
-                document_id=chunk.document_id,
-                filename=chunk.filename,
-                chunk_index=chunk.chunk_index,
-                content=chunk.content,
-                page_number=chunk.page_number,
-                source=chunk.source,
-                similarity=chunk.similarity,
+                chunk_id=(
+                    chunk.chunk_id
+                ),
+                document_id=(
+                    chunk.document_id
+                ),
+                filename=(
+                    chunk.filename
+                ),
+                chunk_index=(
+                    chunk.chunk_index
+                ),
+                content=(
+                    chunk.content
+                ),
+                page_number=(
+                    chunk.page_number
+                ),
+                source=(
+                    chunk.source
+                ),
+                similarity=(
+                    chunk.similarity
+                ),
+                rerank_score=(
+                    chunk.rerank_score
+                ),
             )
-            for chunk in retrieved
+            for chunk in parents
         ]
 
         return DocumentSearchResponse(
             query=payload.query,
             results=results,
-            total=len(results),
+            total=len(
+                results
+            ),
         )
 
     async def _read_upload(
@@ -451,27 +777,34 @@ class DocumentService:
         upload: UploadFile,
     ) -> bytes:
         max_bytes = (
-            self.settings.max_file_size_bytes
+            self.settings
+            .max_file_size_bytes
         )
 
         try:
-            file_bytes = await upload.read(
-                max_bytes + 1
+            file_bytes = (
+                await upload.read(
+                    max_bytes + 1
+                )
             )
+
         except Exception as exc:
             raise DocumentProcessingError(
-                "Unable to read the uploaded document"
+                "Unable to read the "
+                "uploaded document"
             ) from exc
 
         if not file_bytes:
             raise DocumentProcessingError(
-                "The uploaded document is empty"
+                "The uploaded document "
+                "is empty"
             )
 
         if len(file_bytes) > max_bytes:
             raise PayloadTooLargeError(
-                "The uploaded file exceeds the "
-                f"{self.settings.max_file_size_mb} MB limit"
+                "The uploaded file exceeds "
+                f"the {self.settings.max_file_size_mb} "
+                "MB limit"
             )
 
         return file_bytes
@@ -484,9 +817,14 @@ class DocumentService:
         exc: Exception,
     ) -> None:
         try:
-            document = await self.repository.get_by_id(
-                user_id=user_id,
-                document_id=document_id,
+            document = (
+                await self.repository
+                .get_by_id(
+                    user_id=user_id,
+                    document_id=(
+                        document_id
+                    ),
+                )
             )
 
             if document is None:
@@ -494,8 +832,10 @@ class DocumentService:
 
             await self.repository.mark_failed(
                 document,
-                error_message=self._safe_error_message(
-                    exc
+                error_message=(
+                    self._safe_error_message(
+                        exc
+                    )
                 ),
             )
 
@@ -510,11 +850,14 @@ class DocumentService:
     ) -> None:
         if (
             extension
-            not in self.settings.allowed_extension_set
+            not in
+            self.settings
+            .allowed_extension_set
         ):
             supported = ", ".join(
                 sorted(
-                    self.settings.allowed_extension_set
+                    self.settings
+                    .allowed_extension_set
                 )
             )
 
@@ -534,13 +877,18 @@ class DocumentService:
 
         normalized = (
             content_type
-            .split(";", maxsplit=1)[0]
+            .split(
+                ";",
+                maxsplit=1,
+            )[0]
             .strip()
             .lower()
         )
 
-        allowed = _ALLOWED_MIME_TYPES.get(
-            extension
+        allowed = (
+            _ALLOWED_MIME_TYPES.get(
+                extension
+            )
         )
 
         if allowed is None:
@@ -550,8 +898,8 @@ class DocumentService:
 
         if normalized not in allowed:
             raise UnsupportedMediaTypeError(
-                "The uploaded file content type "
-                "does not match its extension"
+                "The uploaded file content "
+                "type does not match its extension"
             )
 
     @staticmethod
@@ -561,13 +909,18 @@ class DocumentService:
         file_bytes: bytes,
     ) -> None:
         if extension == ".pdf":
-            prefix = file_bytes[:1024].lstrip()
+            prefix = (
+                file_bytes[
+                    :1024
+                ].lstrip()
+            )
 
             if not prefix.startswith(
                 b"%PDF-"
             ):
                 raise DocumentProcessingError(
-                    "The uploaded file is not a valid PDF"
+                    "The uploaded file is "
+                    "not a valid PDF"
                 )
 
             return
@@ -577,12 +930,15 @@ class DocumentService:
                 b"PK"
             ):
                 raise DocumentProcessingError(
-                    "The uploaded file is not a valid DOCX document"
+                    "The uploaded file is "
+                    "not a valid DOCX document"
                 )
 
             try:
                 with ZipFile(
-                    BytesIO(file_bytes)
+                    BytesIO(
+                        file_bytes
+                    )
                 ) as archive:
                     names = set(
                         archive.namelist()
@@ -593,26 +949,41 @@ class DocumentService:
                         "word/document.xml",
                     }
 
-                    if not required.issubset(
-                        names
+                    if not (
+                        required
+                        .issubset(
+                            names
+                        )
                     ):
                         raise DocumentProcessingError(
-                            "The uploaded file is not a valid DOCX document"
+                            "The uploaded file "
+                            "is not a valid "
+                            "DOCX document"
                         )
 
             except BadZipFile as exc:
                 raise DocumentProcessingError(
-                    "The uploaded DOCX file is corrupted"
+                    "The uploaded DOCX "
+                    "file is corrupted"
                 ) from exc
 
             return
 
-        if extension in {".txt", ".md"}:
-            sample = file_bytes[:8192]
+        if extension in {
+            ".txt",
+            ".md",
+        }:
+            sample = (
+                file_bytes[
+                    :8192
+                ]
+            )
 
             if b"\x00" in sample:
                 raise DocumentProcessingError(
-                    "The uploaded text document appears to contain binary data"
+                    "The uploaded text "
+                    "document appears to "
+                    "contain binary data"
                 )
 
     @staticmethod
@@ -621,21 +992,26 @@ class DocumentService:
     ) -> str:
         if not filename:
             raise DocumentProcessingError(
-                "Uploaded document filename is missing"
+                "Uploaded document filename "
+                "is missing"
             )
 
-        normalized = Path(
-            filename
-        ).name.strip()
+        normalized = (
+            Path(filename)
+            .name
+            .strip()
+        )
 
         if not normalized:
             raise DocumentProcessingError(
-                "Uploaded document filename is invalid"
+                "Uploaded document filename "
+                "is invalid"
             )
 
         if len(normalized) > 512:
             raise DocumentProcessingError(
-                "Uploaded document filename is too long"
+                "Uploaded document filename "
+                "is too long"
             )
 
         return normalized
@@ -648,7 +1024,10 @@ class DocumentService:
         if content_type:
             normalized = (
                 content_type
-                .split(";", maxsplit=1)[0]
+                .split(
+                    ";",
+                    maxsplit=1,
+                )[0]
                 .strip()
                 .lower()
             )
@@ -657,22 +1036,40 @@ class DocumentService:
                 return normalized
 
         defaults = {
-            ".pdf": "application/pdf",
+            ".pdf": (
+                "application/pdf"
+            ),
             ".docx": (
-                "application/vnd.openxmlformats-officedocument."
+                "application/vnd."
+                "openxmlformats-officedocument."
                 "wordprocessingml.document"
             ),
-            ".txt": "text/plain",
-            ".md": "text/markdown",
+            ".txt": (
+                "text/plain"
+            ),
+            ".md": (
+                "text/markdown"
+            ),
         }
 
-        return defaults[extension]
+        return defaults[
+            extension
+        ]
 
     @staticmethod
     def _safe_error_message(
         exc: Exception,
     ) -> str:
-        if isinstance(exc, AppError):
-            return exc.message[:1000]
+        if isinstance(
+            exc,
+            AppError,
+        ):
+            return (
+                exc.message[
+                    :1000
+                ]
+            )
 
-        return "Document indexing failed"
+        return (
+            "Document indexing failed"
+        )
