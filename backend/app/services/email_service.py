@@ -284,7 +284,7 @@ class EmailService:
                 await self.repository
                 .upsert_processed_metadata(
                     user_id=current_user.id,
-                    payload=(
+                    data=(
                         self._to_upsert(
                             parsed=parsed,
                             assessment=(
@@ -475,7 +475,7 @@ class EmailService:
             await self.repository
             .upsert_processed_metadata(
                 user_id=current_user.id,
-                payload=(
+                data=(
                     self._to_analyzed_upsert(
                         parsed=parsed,
                         intelligence=(

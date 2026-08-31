@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import asdict
 from datetime import (
     date,
     datetime,
@@ -575,7 +576,7 @@ def test_metadata_upsert_contains_no_raw_body_or_attachment_data() -> None:
         )
     )
 
-    stored = vars(
+    stored = asdict(
         upsert
     )
 
