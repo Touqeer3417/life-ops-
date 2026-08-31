@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -10,7 +11,9 @@ from pydantic import (
 )
 
 
-GMAIL_MESSAGE_ID_PATTERN = r"^[A-Za-z0-9_-]{1,256}$"
+GMAIL_MESSAGE_ID_PATTERN = (
+    r"^[A-Za-z0-9_-]{1,256}$"
+)
 
 
 class EmailCategory(StrEnum):
@@ -39,11 +42,12 @@ class BillingFrequency(StrEnum):
 
 class EmailSearchRequest(BaseModel):
     """
-    Structured Gmail search owned by the authenticated LifeOps user.
+    Structured, bounded Gmail search for the
+    authenticated LifeOps user.
 
-    The frontend/LLM never supplies a Gmail user ID. The backend always
-    uses Gmail's special `me` identity with the access token belonging
-    to the authenticated LifeOps user.
+    The frontend or agent never supplies Gmail
+    credentials or a Gmail user ID. Those remain
+    backend-owned.
     """
 
     query: str | None = Field(
@@ -61,8 +65,9 @@ class EmailSearchRequest(BaseModel):
         max_length=500,
     )
 
-    after: datetime | None = None
-    before: datetime | None = None
+    after: date | datetime | None = None
+
+    before: date | datetime | None = None
 
     label_ids: list[str] = Field(
         default_factory=list,
@@ -101,7 +106,10 @@ class EmailSearchRequest(BaseModel):
         cls,
         value: object,
     ) -> object:
-        if not isinstance(value, str):
+        if not isinstance(
+            value,
+            str,
+        ):
             return value
 
         normalized = " ".join(
@@ -129,12 +137,14 @@ class EmailSearchRequest(BaseModel):
 
             if len(label) > 128:
                 raise ValueError(
-                    "Gmail label IDs must not exceed "
-                    "128 characters"
+                    "Gmail label IDs must not "
+                    "exceed 128 characters"
                 )
 
             if label not in normalized:
-                normalized.append(label)
+                normalized.append(
+                    label
+                )
 
         return normalized
 
@@ -145,10 +155,30 @@ class EmailSearchRequest(BaseModel):
         self,
     ) -> "EmailSearchRequest":
         if (
-            self.after is not None
-            and self.before is not None
-            and self.before <= self.after
+            self.after is None
+            or self.before is None
         ):
+            return self
+
+        after_date = (
+            self.after.date()
+            if isinstance(
+                self.after,
+                datetime,
+            )
+            else self.after
+        )
+
+        before_date = (
+            self.before.date()
+            if isinstance(
+                self.before,
+                datetime,
+            )
+            else self.before
+        )
+
+        if before_date <= after_date:
             raise ValueError(
                 "before must be later than after"
             )
@@ -157,8 +187,11 @@ class EmailSearchRequest(BaseModel):
 
 
 class ImportantEmailRequest(BaseModel):
-    after: datetime | None = None
-    before: datetime | None = None
+    after: date | datetime | None = None
+
+    before: date | datetime | None = None
+
+    include_spam_trash: bool = False
 
     max_results: int = Field(
         default=20,
@@ -171,6 +204,25 @@ class ImportantEmailRequest(BaseModel):
         max_length=4096,
     )
 
+    @field_validator(
+        "page_token",
+        mode="before",
+    )
+    @classmethod
+    def normalize_page_token(
+        cls,
+        value: object,
+    ) -> object:
+        if not isinstance(
+            value,
+            str,
+        ):
+            return value
+
+        normalized = value.strip()
+
+        return normalized or None
+
     @model_validator(
         mode="after",
     )
@@ -178,10 +230,30 @@ class ImportantEmailRequest(BaseModel):
         self,
     ) -> "ImportantEmailRequest":
         if (
-            self.after is not None
-            and self.before is not None
-            and self.before <= self.after
+            self.after is None
+            or self.before is None
         ):
+            return self
+
+        after_date = (
+            self.after.date()
+            if isinstance(
+                self.after,
+                datetime,
+            )
+            else self.after
+        )
+
+        before_date = (
+            self.before.date()
+            if isinstance(
+                self.before,
+                datetime,
+            )
+            else self.before
+        )
+
+        if before_date <= after_date:
             raise ValueError(
                 "before must be later than after"
             )
@@ -191,10 +263,12 @@ class ImportantEmailRequest(BaseModel):
 
 class SubscriptionEvidence(BaseModel):
     """
-    Subscription-like information extracted from one Gmail message.
+    Structured subscription evidence extracted
+    from one Gmail message.
 
-    certainty prevents an invoice/receipt from being incorrectly
-    represented as proof of a currently-active subscription.
+    `certainty` is important because an invoice or
+    receipt does not automatically prove that a
+    subscription is currently active.
     """
 
     provider: str | None = Field(
@@ -218,9 +292,12 @@ class SubscriptionEvidence(BaseModel):
         max_length=3,
     )
 
-    billing_frequency: BillingFrequency | None = None
+    billing_frequency: (
+        BillingFrequency | None
+    ) = None
 
     renewal_date: date | None = None
+
     payment_date: date | None = None
 
     status: str | None = Field(
@@ -229,6 +306,8 @@ class SubscriptionEvidence(BaseModel):
     )
 
     source_message_id: str = Field(
+        min_length=1,
+        max_length=256,
         pattern=GMAIL_MESSAGE_ID_PATTERN,
     )
 
@@ -265,7 +344,9 @@ class SubscriptionEvidence(BaseModel):
 
 
 class EmailIntelligence(BaseModel):
-    category: EmailCategory = EmailCategory.OTHER
+    category: EmailCategory = (
+        EmailCategory.OTHER
+    )
 
     is_important: bool = False
 
@@ -291,6 +372,7 @@ class EmailIntelligence(BaseModel):
     )
 
     relevant_date: datetime | None = None
+
     deadline: datetime | None = None
 
     amount: Decimal | None = Field(
@@ -309,7 +391,9 @@ class EmailIntelligence(BaseModel):
         max_length=1000,
     )
 
-    subscription: SubscriptionEvidence | None = None
+    subscription: (
+        SubscriptionEvidence | None
+    ) = None
 
     @field_validator(
         "currency",
@@ -327,14 +411,30 @@ class EmailIntelligence(BaseModel):
 
 
 class EmailMetadataRead(BaseModel):
+    """
+    Sanitized Gmail metadata persisted by LifeOps.
+
+    Raw email bodies and attachments are deliberately
+    excluded from this API model.
+    """
+
     id: str | None = None
 
-    message_id: str = Field(
+    gmail_message_id: str = Field(
+        min_length=1,
+        max_length=256,
         pattern=GMAIL_MESSAGE_ID_PATTERN,
     )
 
-    thread_id: str = Field(
+    gmail_thread_id: str = Field(
+        min_length=1,
+        max_length=256,
         pattern=GMAIL_MESSAGE_ID_PATTERN,
+    )
+
+    rfc822_message_id: str | None = Field(
+        default=None,
+        max_length=998,
     )
 
     sender: str | None = None
@@ -353,7 +453,9 @@ class EmailMetadataRead(BaseModel):
         default_factory=list,
     )
 
-    category: EmailCategory = EmailCategory.OTHER
+    category: EmailCategory = (
+        EmailCategory.OTHER
+    )
 
     is_important: bool = False
 
@@ -365,11 +467,24 @@ class EmailMetadataRead(BaseModel):
 
     summary: str | None = None
 
-    intelligence: EmailIntelligence | None = None
+    extracted_metadata: dict[
+        str,
+        Any,
+    ] = Field(
+        default_factory=dict,
+    )
+
+    processed_at: datetime
+
+    created_at: datetime
+
+    updated_at: datetime
 
 
 class EmailSearchResponse(BaseModel):
-    items: list[EmailMetadataRead] = Field(
+    messages: list[
+        EmailMetadataRead
+    ] = Field(
         default_factory=list,
     )
 
@@ -382,11 +497,18 @@ class EmailSearchResponse(BaseModel):
 
 
 class ImportantEmailResponse(BaseModel):
-    items: list[EmailMetadataRead] = Field(
+    messages: list[
+        EmailMetadataRead
+    ] = Field(
         default_factory=list,
     )
 
     next_page_token: str | None = None
+
+    result_size_estimate: int = Field(
+        default=0,
+        ge=0,
+    )
 
 
 class EmailSummaryResponse(BaseModel):

@@ -22,25 +22,12 @@ export type BillingFrequency =
   | 'other'
 
 
-/**
- * Decimal values from FastAPI/Pydantic may be serialized
- * as JSON strings depending on provider/runtime behavior.
- */
 export type ApiDecimal =
   | string
   | number
 
 
 export interface EmailSearchInput {
-  /**
-   * Free-form Gmail-native search intent.
-   *
-   * Examples:
-   * - Hostinger renewal
-   * - internship
-   * - invoice
-   * - from:example.com
-   */
   query?: string | null
 
   sender?: string | null
@@ -48,12 +35,15 @@ export interface EmailSearchInput {
   subject?: string | null
 
   /**
-   * Inclusive beginning date in YYYY-MM-DD form.
+   * YYYY-MM-DD or ISO datetime.
    */
   after?: string | null
 
   /**
-   * Exclusive ending date in YYYY-MM-DD form.
+   * YYYY-MM-DD or ISO datetime.
+   *
+   * Gmail treats this as an exclusive
+   * upper boundary.
    */
   before?: string | null
 
@@ -65,9 +55,6 @@ export interface EmailSearchInput {
 
   include_spam_trash?: boolean
 
-  /**
-   * Backend Phase 4 API currently limits this to 50.
-   */
   max_results?: number
 
   page_token?: string | null
@@ -75,14 +62,8 @@ export interface EmailSearchInput {
 
 
 export interface ImportantEmailInput {
-  /**
-   * Inclusive beginning date in YYYY-MM-DD form.
-   */
   after?: string | null
 
-  /**
-   * Exclusive ending date in YYYY-MM-DD form.
-   */
   before?: string | null
 
   include_spam_trash?: boolean
@@ -96,26 +77,22 @@ export interface ImportantEmailInput {
 export interface SubscriptionEvidence {
   provider: string | null
 
-  plan: string | null
+  product_plan: string | null
 
   amount: ApiDecimal | null
 
   currency: string | null
 
-  frequency: BillingFrequency | null
+  billing_frequency:
+    | BillingFrequency
+    | null
 
   renewal_date: string | null
 
-  next_payment_date: string | null
+  payment_date: string | null
 
   status: string | null
 
-  /**
-   * Gmail message that supports this evidence.
-   *
-   * Keep this internal to application behavior. Normal UI
-   * copy should not unnecessarily display technical IDs.
-   */
   source_message_id: string
 
   source_subject: string | null
@@ -131,28 +108,34 @@ export interface SubscriptionEvidence {
 export interface EmailIntelligence {
   category: EmailCategory
 
+  is_important: boolean
+
   importance_score: number
 
-  summary: string
+  summary: string | null
 
   what_happened: string | null
 
   why_it_matters: string | null
 
-  dates: string[]
+  relevant_date: string | null
+
+  deadline: string | null
 
   amount: ApiDecimal | null
 
   currency: string | null
 
-  action_required: string | null
+  required_action: string | null
 
-  subscription: SubscriptionEvidence | null
+  subscription:
+    | SubscriptionEvidence
+    | null
 }
 
 
 export interface EmailMetadata {
-  id: string
+  id: string | null
 
   gmail_message_id: string
 
@@ -170,8 +153,7 @@ export interface EmailMetadata {
 
   /**
    * Gmail-generated preview text.
-   *
-   * This is metadata, not the persisted raw email body.
+   * Raw body content is not returned here.
    */
   snippet: string | null
 
@@ -186,8 +168,10 @@ export interface EmailMetadata {
   summary: string | null
 
   /**
-   * Sanitized structured intelligence persisted by LifeOps.
-   * Raw email bodies and attachments are not stored here.
+   * Sanitized structured intelligence.
+   *
+   * Raw Gmail body content and attachments
+   * are never represented by this field.
    */
   extracted_metadata: Record<
     string,
