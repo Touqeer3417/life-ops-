@@ -2,6 +2,7 @@
 
 from app.models.document import Document, DocumentStatus
 from app.models.document_chunk import DocumentChunk
+from app.models.email_metadata import EmailMetadata
 from app.models.oauth_connection import (
     OAuthConnection,
     OAuthConnectionStatus,
@@ -15,6 +16,7 @@ __all__ = [
     "Document",
     "DocumentChunk",
     "DocumentStatus",
+    "EmailMetadata",
     "OAuthConnection",
     "OAuthConnectionStatus",
     "OAuthProvider",

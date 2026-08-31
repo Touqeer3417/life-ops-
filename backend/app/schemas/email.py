@@ -1,0 +1,403 @@
+from datetime import date, datetime
+from decimal import Decimal
+from enum import StrEnum
+
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+
+GMAIL_MESSAGE_ID_PATTERN = r"^[A-Za-z0-9_-]{1,256}$"
+
+
+class EmailCategory(StrEnum):
+    IMPORTANT = "important"
+    BILL = "bill"
+    SUBSCRIPTION = "subscription"
+    DEADLINE = "deadline"
+    BOOKING = "booking"
+    UNIVERSITY = "university"
+    RECEIPT = "receipt"
+    OTHER = "other"
+
+
+class EvidenceCertainty(StrEnum):
+    CONFIRMED = "confirmed"
+    INFERRED = "inferred"
+
+
+class BillingFrequency(StrEnum):
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    YEARLY = "yearly"
+    OTHER = "other"
+
+
+class EmailSearchRequest(BaseModel):
+    """
+    Structured Gmail search owned by the authenticated LifeOps user.
+
+    The frontend/LLM never supplies a Gmail user ID. The backend always
+    uses Gmail's special `me` identity with the access token belonging
+    to the authenticated LifeOps user.
+    """
+
+    query: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    sender: str | None = Field(
+        default=None,
+        max_length=320,
+    )
+
+    subject: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    after: datetime | None = None
+    before: datetime | None = None
+
+    label_ids: list[str] = Field(
+        default_factory=list,
+        max_length=20,
+    )
+
+    categories: list[EmailCategory] = Field(
+        default_factory=list,
+        max_length=8,
+    )
+
+    important_only: bool = False
+
+    include_spam_trash: bool = False
+
+    max_results: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+    )
+
+    page_token: str | None = Field(
+        default=None,
+        max_length=4096,
+    )
+
+    @field_validator(
+        "query",
+        "sender",
+        "subject",
+        "page_token",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_text(
+        cls,
+        value: object,
+    ) -> object:
+        if not isinstance(value, str):
+            return value
+
+        normalized = " ".join(
+            value.split()
+        )
+
+        return normalized or None
+
+    @field_validator(
+        "label_ids",
+        mode="after",
+    )
+    @classmethod
+    def normalize_label_ids(
+        cls,
+        values: list[str],
+    ) -> list[str]:
+        normalized: list[str] = []
+
+        for value in values:
+            label = value.strip()
+
+            if not label:
+                continue
+
+            if len(label) > 128:
+                raise ValueError(
+                    "Gmail label IDs must not exceed "
+                    "128 characters"
+                )
+
+            if label not in normalized:
+                normalized.append(label)
+
+        return normalized
+
+    @model_validator(
+        mode="after",
+    )
+    def validate_date_range(
+        self,
+    ) -> "EmailSearchRequest":
+        if (
+            self.after is not None
+            and self.before is not None
+            and self.before <= self.after
+        ):
+            raise ValueError(
+                "before must be later than after"
+            )
+
+        return self
+
+
+class ImportantEmailRequest(BaseModel):
+    after: datetime | None = None
+    before: datetime | None = None
+
+    max_results: int = Field(
+        default=20,
+        ge=1,
+        le=50,
+    )
+
+    page_token: str | None = Field(
+        default=None,
+        max_length=4096,
+    )
+
+    @model_validator(
+        mode="after",
+    )
+    def validate_date_range(
+        self,
+    ) -> "ImportantEmailRequest":
+        if (
+            self.after is not None
+            and self.before is not None
+            and self.before <= self.after
+        ):
+            raise ValueError(
+                "before must be later than after"
+            )
+
+        return self
+
+
+class SubscriptionEvidence(BaseModel):
+    """
+    Subscription-like information extracted from one Gmail message.
+
+    certainty prevents an invoice/receipt from being incorrectly
+    represented as proof of a currently-active subscription.
+    """
+
+    provider: str | None = Field(
+        default=None,
+        max_length=200,
+    )
+
+    product_plan: str | None = Field(
+        default=None,
+        max_length=300,
+    )
+
+    amount: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+    )
+
+    currency: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=3,
+    )
+
+    billing_frequency: BillingFrequency | None = None
+
+    renewal_date: date | None = None
+    payment_date: date | None = None
+
+    status: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    source_message_id: str = Field(
+        pattern=GMAIL_MESSAGE_ID_PATTERN,
+    )
+
+    source_subject: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    evidence: str | None = Field(
+        default=None,
+        max_length=1500,
+    )
+
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+    )
+
+    certainty: EvidenceCertainty
+
+    @field_validator(
+        "currency",
+        mode="after",
+    )
+    @classmethod
+    def normalize_currency(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        return value.upper()
+
+
+class EmailIntelligence(BaseModel):
+    category: EmailCategory = EmailCategory.OTHER
+
+    is_important: bool = False
+
+    importance_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+    )
+
+    summary: str | None = Field(
+        default=None,
+        max_length=3000,
+    )
+
+    what_happened: str | None = Field(
+        default=None,
+        max_length=1500,
+    )
+
+    why_it_matters: str | None = Field(
+        default=None,
+        max_length=1500,
+    )
+
+    relevant_date: datetime | None = None
+    deadline: datetime | None = None
+
+    amount: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+    )
+
+    currency: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=3,
+    )
+
+    required_action: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+    subscription: SubscriptionEvidence | None = None
+
+    @field_validator(
+        "currency",
+        mode="after",
+    )
+    @classmethod
+    def normalize_currency(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        return value.upper()
+
+
+class EmailMetadataRead(BaseModel):
+    id: str | None = None
+
+    message_id: str = Field(
+        pattern=GMAIL_MESSAGE_ID_PATTERN,
+    )
+
+    thread_id: str = Field(
+        pattern=GMAIL_MESSAGE_ID_PATTERN,
+    )
+
+    sender: str | None = None
+
+    recipients: list[str] = Field(
+        default_factory=list,
+    )
+
+    subject: str | None = None
+
+    received_at: datetime | None = None
+
+    snippet: str | None = None
+
+    label_ids: list[str] = Field(
+        default_factory=list,
+    )
+
+    category: EmailCategory = EmailCategory.OTHER
+
+    is_important: bool = False
+
+    importance_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+    )
+
+    summary: str | None = None
+
+    intelligence: EmailIntelligence | None = None
+
+
+class EmailSearchResponse(BaseModel):
+    items: list[EmailMetadataRead] = Field(
+        default_factory=list,
+    )
+
+    next_page_token: str | None = None
+
+    result_size_estimate: int = Field(
+        default=0,
+        ge=0,
+    )
+
+
+class ImportantEmailResponse(BaseModel):
+    items: list[EmailMetadataRead] = Field(
+        default_factory=list,
+    )
+
+    next_page_token: str | None = None
+
+
+class EmailSummaryResponse(BaseModel):
+    message: EmailMetadataRead
+
+    intelligence: EmailIntelligence
+
+
+class EmailMessageReference(BaseModel):
+    message_id: str = Field(
+        min_length=1,
+        max_length=256,
+        pattern=GMAIL_MESSAGE_ID_PATTERN,
+    )

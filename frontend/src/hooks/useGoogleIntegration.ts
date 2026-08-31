@@ -9,7 +9,9 @@ import {
   getGoogleIntegration,
   startGoogleAuthorization,
 } from '@/api/googleIntegrations'
-import { useAuth } from '@/auth/AuthProvider'
+import {
+  useAuth,
+} from '@/auth/AuthProvider'
 
 import type {
   GoogleConnectInput,
@@ -19,6 +21,16 @@ import type {
 export const GOOGLE_INTEGRATION_QUERY_KEY = [
   'integrations',
   'google',
+] as const
+
+
+const CALENDAR_QUERY_KEY = [
+  'calendar',
+] as const
+
+
+const EMAIL_QUERY_KEY = [
+  'email',
 ] as const
 
 
@@ -44,9 +56,11 @@ export function useGoogleIntegration() {
       )
     },
 
-    staleTime: 15_000,
+    staleTime:
+      15_000,
 
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus:
+      true,
   })
 }
 
@@ -63,6 +77,14 @@ export function useConnectGoogle() {
       const accessToken =
         await getAccessToken()
 
+      /**
+       * The backend creates the Google authorization URL.
+       *
+       * Calendar and Gmail may be requested together or
+       * incrementally through the same Google connection.
+       *
+       * OAuth credentials never become frontend state.
+       */
       await startGoogleAuthorization(
         accessToken,
         input,
@@ -91,16 +113,32 @@ export function useDisconnectGoogle() {
     },
 
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey:
-          GOOGLE_INTEGRATION_QUERY_KEY,
-      })
+      /**
+       * Google is one shared authorization.
+       *
+       * Disconnecting it invalidates:
+       *
+       * - Google capability/status state
+       * - Calendar state
+       * - Gmail intelligence state
+       */
 
-      await queryClient.invalidateQueries({
-        queryKey: [
-          'calendar',
-        ],
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey:
+            GOOGLE_INTEGRATION_QUERY_KEY,
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey:
+            CALENDAR_QUERY_KEY,
+        }),
+
+        queryClient.invalidateQueries({
+          queryKey:
+            EMAIL_QUERY_KEY,
+        }),
+      ])
     },
   })
 }

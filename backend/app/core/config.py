@@ -51,13 +51,22 @@ SUPPORTED_RERANKER_DEVICES = frozenset(
 
 
 GOOGLE_CALENDAR_READ_SCOPES = (
-    "https://www.googleapis.com/auth/calendar.events.readonly",
-    "https://www.googleapis.com/auth/calendar.freebusy",
+    "https://www.googleapis.com/auth/"
+    "calendar.events.readonly",
+    "https://www.googleapis.com/auth/"
+    "calendar.freebusy",
 )
 
 GOOGLE_CALENDAR_WRITE_SCOPES = (
-    "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/calendar.freebusy",
+    "https://www.googleapis.com/auth/"
+    "calendar.events",
+    "https://www.googleapis.com/auth/"
+    "calendar.freebusy",
+)
+
+GOOGLE_GMAIL_READ_SCOPES = (
+    "https://www.googleapis.com/auth/"
+    "gmail.readonly",
 )
 
 
@@ -238,7 +247,7 @@ class Settings(BaseSettings):
         le=20,
     )
 
-    # This is intentionally recall-oriented.
+    # Recall-oriented first-pass threshold.
     # CrossEncoder applies the stronger final filter.
     retrieval_similarity_threshold: float = Field(
         default=0.15,
@@ -344,10 +353,36 @@ class Settings(BaseSettings):
         le=60,
     )
 
+    # =====================================================
+    # Google Calendar
+    # =====================================================
+
     google_calendar_api_timeout_seconds: float = Field(
         default=10.0,
         gt=0,
         le=60,
+    )
+
+    # =====================================================
+    # Gmail / Phase 4
+    # =====================================================
+
+    google_gmail_api_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
+    )
+
+    gmail_metadata_fetch_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+    )
+
+    gmail_max_body_chars: int = Field(
+        default=100_000,
+        ge=1_000,
+        le=500_000,
     )
 
     # =====================================================
@@ -410,9 +445,16 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def google_calendar_configured(
+    def google_oauth_configured(
         self,
     ) -> bool:
+        """
+        Shared Google OAuth configuration.
+
+        Calendar and Gmail intentionally use the same OAuth client,
+        redirect URI, encrypted token store, and Google connection.
+        """
+
         return all(
             (
                 self.google_oauth_client_id.strip(),
@@ -428,6 +470,24 @@ class Settings(BaseSettings):
                 .strip(),
             )
         )
+
+    @computed_field
+    @property
+    def google_calendar_configured(
+        self,
+    ) -> bool:
+        """
+        Backward-compatible Phase 3 property.
+        """
+
+        return self.google_oauth_configured
+
+    @computed_field
+    @property
+    def google_gmail_configured(
+        self,
+    ) -> bool:
+        return self.google_oauth_configured
 
     @property
     def allowed_extension_set(
@@ -454,6 +514,14 @@ class Settings(BaseSettings):
     ) -> tuple[str, ...]:
         return (
             GOOGLE_CALENDAR_WRITE_SCOPES
+        )
+
+    @property
+    def google_gmail_read_scopes(
+        self,
+    ) -> tuple[str, ...]:
+        return (
+            GOOGLE_GMAIL_READ_SCOPES
         )
 
     @property
@@ -787,9 +855,15 @@ class Settings(BaseSettings):
                 f"{joined}"
             )
 
-    def validate_google_calendar_configuration(
+    def validate_google_oauth_configuration(
         self,
     ) -> None:
+        """
+        Validate shared Google OAuth configuration.
+
+        Phase 3 Calendar and Phase 4 Gmail both use this validation.
+        """
+
         missing: dict[
             str,
             str,
@@ -826,9 +900,8 @@ class Settings(BaseSettings):
             )
 
             raise RuntimeError(
-                "Google Calendar integration "
-                "is not configured. "
-                "Missing settings: "
+                "Google integration is not "
+                "configured. Missing settings: "
                 f"{joined}"
             )
 
@@ -882,6 +955,23 @@ class Settings(BaseSettings):
                 "must decode to exactly "
                 "32 bytes"
             )
+
+    def validate_google_calendar_configuration(
+        self,
+    ) -> None:
+        """
+        Backward-compatible Phase 3 entry point.
+
+        Existing Calendar code can keep calling this method while the
+        underlying configuration is now shared with Gmail.
+        """
+
+        self.validate_google_oauth_configuration()
+
+    def validate_google_gmail_configuration(
+        self,
+    ) -> None:
+        self.validate_google_oauth_configuration()
 
 
 @lru_cache

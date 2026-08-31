@@ -6,6 +6,7 @@ from app.api import (
     chat,
     dashboard,
     documents,
+    email,
     google_integrations,
     health,
     users,
@@ -37,4 +38,7 @@ api_router.include_router(
 )
 api_router.include_router(
     calendar.router
+)
+api_router.include_router(
+    email.router
 )

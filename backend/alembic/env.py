@@ -12,6 +12,7 @@ from app.database.base import Base
 from app.models import (  # noqa: F401
     Document,
     DocumentChunk,
+    EmailMetadata,
     OAuthConnection,
     User,
     UserPreference,

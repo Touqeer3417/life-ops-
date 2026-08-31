@@ -18,9 +18,7 @@ class AppError(Exception):
         status_code: int,
         code: str,
     ) -> None:
-        super().__init__(
-            message
-        )
+        super().__init__(message)
 
         self.message = message
         self.status_code = status_code
@@ -185,11 +183,16 @@ class ServiceUnavailableError(AppError):
         )
 
 
+# ---------------------------------------------------------------------------
+# Google OAuth
+# ---------------------------------------------------------------------------
+
+
 class OAuthConnectionRequiredError(AppError):
     def __init__(
         self,
         message: str = (
-            "Google Calendar is not connected. "
+            "Google is not connected. "
             "Connect your Google account first."
         ),
     ) -> None:
@@ -263,7 +266,8 @@ class OAuthTokenDecryptionError(AppError):
     def __init__(
         self,
         message: str = (
-            "Stored OAuth credentials could not be decrypted"
+            "Stored OAuth credentials could not "
+            "be decrypted"
         ),
     ) -> None:
         super().__init__(
@@ -278,15 +282,18 @@ class OAuthTokenDecryptionError(AppError):
 class GoogleOAuthError(AppError):
     def __init__(
         self,
-        message: str = (
-            "Google OAuth request failed"
-        ),
+        message: str = "Google OAuth request failed",
     ) -> None:
         super().__init__(
             message,
             status_code=status.HTTP_502_BAD_GATEWAY,
             code="google_oauth_error",
         )
+
+
+# ---------------------------------------------------------------------------
+# Google Calendar
+# ---------------------------------------------------------------------------
 
 
 class GoogleCalendarError(AppError):
@@ -303,12 +310,73 @@ class GoogleCalendarError(AppError):
         )
 
 
+# ---------------------------------------------------------------------------
+# Phase 4 Gmail
+# ---------------------------------------------------------------------------
+
+
+class GoogleGmailError(AppError):
+    """
+    Gmail upstream request failed.
+
+    Raw Google response bodies should never be exposed
+    through this exception.
+    """
+
+    def __init__(
+        self,
+        message: str = "Google Gmail request failed",
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="google_gmail_error",
+        )
+
+
+class GmailRateLimitError(AppError):
+    """
+    Gmail rejected the request because of quota or
+    temporary rate limiting.
+    """
+
+    def __init__(
+        self,
+        message: str = (
+            "Gmail is temporarily rate limited. "
+            "Please try again shortly."
+        ),
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            code="gmail_rate_limited",
+        )
+
+
+class GmailMessageNotFoundError(AppError):
+    def __init__(
+        self,
+        message: str = "Gmail message was not found",
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="gmail_message_not_found",
+        )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI handlers
+# ---------------------------------------------------------------------------
+
+
 def register_exception_handlers(
     app: FastAPI,
 ) -> None:
-    @app.exception_handler(
-        AppError
-    )
+    @app.exception_handler(AppError)
     async def handle_app_error(
         _: Request,
         exc: AppError,
@@ -333,9 +401,7 @@ def register_exception_handlers(
             headers=headers,
         )
 
-    @app.exception_handler(
-        Exception
-    )
+    @app.exception_handler(Exception)
     async def handle_unexpected_error(
         request: Request,
         exc: Exception,
@@ -345,10 +411,7 @@ def register_exception_handlers(
             exc_info=exc,
         )
 
-        payload: dict[
-            str,
-            Any,
-        ] = {
+        payload: dict[str, Any] = {
             "error": {
                 "code": (
                     "internal_server_error"
