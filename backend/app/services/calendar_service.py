@@ -550,20 +550,33 @@ class CalendarService:
         current_user: User,
         requested_timezone: str | None,
     ) -> str:
+        # If the agent/API explicitly sends a timezone,
+        # always use that timezone.
         if requested_timezone:
             return requested_timezone
 
-        preferences = (
-            current_user.preferences
-        )
+        preferences = current_user.preferences
 
+        # Use user's saved timezone if it is actually configured.
         if (
             preferences is not None
             and preferences.timezone
         ):
-            return preferences.timezone
+            saved_timezone = (
+                preferences.timezone.strip()
+            )
 
-        return "UTC"
+            # "UTC" is currently the default value in LifeOps.
+            # For the current Pakistan setup, treat it as
+            # an unconfigured timezone.
+            if (
+                saved_timezone
+                and saved_timezone != "UTC"
+            ):
+                return saved_timezone
+
+        # Current LifeOps user is in Pakistan.
+        return "Asia/Karachi"
 
     @staticmethod
     def _to_utc(
