@@ -160,34 +160,34 @@ class AgentService:
         current_user: User,
     ) -> str:
         """
-        Resolve the same saved IANA timezone used by the
-        existing Calendar architecture.
+        Resolve the user's timezone.
 
-        UTC remains the safe fallback for users without a
-        preference record.
+        For the current LifeOps setup, UTC in the database
+        is treated as the old/default unconfigured value.
         """
 
-        timezone_name = "UTC"
+        timezone_name = "Asia/Karachi"
 
-        preferences = (
-            current_user.preferences
-        )
+        preferences = current_user.preferences
 
         if (
             preferences is not None
             and preferences.timezone
             and preferences.timezone.strip()
         ):
-            timezone_name = (
-                preferences
-                .timezone
-                .strip()
+            saved_timezone = (
+                preferences.timezone.strip()
             )
 
+            # Current database uses UTC as its old default.
+            # Until automatic timezone detection is added,
+            # use Pakistan timezone instead.
+            if saved_timezone != "UTC":
+                timezone_name = saved_timezone
+
         try:
-            ZoneInfo(
-                timezone_name
-            )
+            ZoneInfo(timezone_name)
+
         except ZoneInfoNotFoundError as exc:
             raise UpstreamServiceError(
                 "The user's saved timezone "
@@ -195,6 +195,10 @@ class AgentService:
             ) from exc
 
         return timezone_name
+
+
+   
+
 
     @staticmethod
     def _extract_messages(

@@ -19,7 +19,17 @@ GOOGLE_CALENDAR_API_BASE_URL = (
 
 
 class GoogleCalendarClient:
-    """Low-level async Google Calendar REST API client."""
+    """
+    Low-level async Google Calendar REST API client.
+
+    Handles:
+    - list events
+    - get event
+    - create event
+    - update event
+    - delete event
+    - free/busy queries
+    """
 
     def __init__(
         self,
@@ -41,9 +51,15 @@ class GoogleCalendarClient:
         self._access_token = (
             normalized_token
         )
+
         self._timeout = (
-            settings.google_calendar_api_timeout_seconds
+            settings
+            .google_calendar_api_timeout_seconds
         )
+
+    # =====================================================
+    # LIST EVENTS
+    # =====================================================
 
     async def list_events(
         self,
@@ -59,7 +75,10 @@ class GoogleCalendarClient:
                 "time_max must be after time_min"
             )
 
-        if max_results < 1 or max_results > 2500:
+        if (
+            max_results < 1
+            or max_results > 2500
+        ):
             raise ValueError(
                 "max_results must be between "
                 "1 and 2500"
@@ -81,9 +100,9 @@ class GoogleCalendarClient:
         }
 
         if timezone:
-            params["timeZone"] = (
-                timezone.strip()
-            )
+            params[
+                "timeZone"
+            ] = timezone.strip()
 
         payload = await self._request(
             "GET",
@@ -124,6 +143,10 @@ class GoogleCalendarClient:
 
         return events
 
+    # =====================================================
+    # GET ONE EVENT
+    # =====================================================
+
     async def get_event(
         self,
         *,
@@ -146,9 +169,9 @@ class GoogleCalendarClient:
         ] = {}
 
         if timezone:
-            params["timeZone"] = (
-                timezone.strip()
-            )
+            params[
+                "timeZone"
+            ] = timezone.strip()
 
         return await self._request(
             "GET",
@@ -158,8 +181,15 @@ class GoogleCalendarClient:
                 "/events/"
                 f"{self._encode(normalized_event_id)}"
             ),
-            params=params or None,
+            params=(
+                params
+                or None
+            ),
         )
+
+    # =====================================================
+    # CREATE EVENT
+    # =====================================================
 
     async def create_event(
         self,
@@ -180,10 +210,16 @@ class GoogleCalendarClient:
                 "/events"
             ),
             params={
-                "sendUpdates": send_updates,
+                "sendUpdates": (
+                    send_updates
+                ),
             },
             json_body=event,
         )
+
+    # =====================================================
+    # UPDATE EVENT
+    # =====================================================
 
     async def update_event(
         self,
@@ -220,10 +256,62 @@ class GoogleCalendarClient:
                 f"{self._encode(normalized_event_id)}"
             ),
             params={
-                "sendUpdates": send_updates,
+                "sendUpdates": (
+                    send_updates
+                ),
             },
             json_body=event_patch,
         )
+
+    # =====================================================
+    # DELETE EVENT
+    # =====================================================
+
+    async def delete_event(
+        self,
+        *,
+        event_id: str,
+        calendar_id: str = "primary",
+        send_updates: str = "none",
+    ) -> None:
+        """
+        Delete one real Google Calendar event.
+
+        The event_id must come from an actual
+        Calendar event returned by Google.
+        """
+
+        normalized_event_id = (
+            event_id.strip()
+        )
+
+        if not normalized_event_id:
+            raise ValueError(
+                "event_id cannot be empty"
+            )
+
+        self._validate_send_updates(
+            send_updates
+        )
+
+        await self._request(
+            "DELETE",
+            (
+                "/calendars/"
+                f"{self._encode(calendar_id)}"
+                "/events/"
+                f"{self._encode(normalized_event_id)}"
+            ),
+            params={
+                "sendUpdates": (
+                    send_updates
+                ),
+            },
+        )
+
+    # =====================================================
+    # FREE / BUSY
+    # =====================================================
 
     async def query_free_busy(
         self,
@@ -263,9 +351,12 @@ class GoogleCalendarClient:
                 "is required"
             )
 
-        if len(
-            normalized_calendars
-        ) > 50:
+        if (
+            len(
+                normalized_calendars
+            )
+            > 50
+        ):
             raise ValueError(
                 "A maximum of 50 calendars "
                 "can be checked at once"
@@ -286,13 +377,19 @@ class GoogleCalendarClient:
                 ),
                 "items": [
                     {
-                        "id": calendar_id,
+                        "id": (
+                            calendar_id
+                        ),
                     }
                     for calendar_id
                     in normalized_calendars
                 ],
             },
         )
+
+    # =====================================================
+    # COMMON GOOGLE REQUEST HANDLER
+    # =====================================================
 
     async def _request(
         self,
@@ -338,11 +435,13 @@ class GoogleCalendarClient:
                         json=json_body,
                     )
                 )
+
         except httpx.TimeoutException as exc:
             raise GoogleCalendarError(
                 "Google Calendar request "
                 "timed out"
             ) from exc
+
         except httpx.RequestError as exc:
             raise GoogleCalendarError(
                 "Unable to reach "
@@ -354,11 +453,16 @@ class GoogleCalendarClient:
                 response
             )
 
+        # Google normally returns HTTP 204
+        # after successfully deleting an event.
         if response.status_code == 204:
             return {}
 
         try:
-            payload = response.json()
+            payload = (
+                response.json()
+            )
+
         except ValueError as exc:
             raise GoogleCalendarError(
                 "Google Calendar returned "
@@ -376,6 +480,10 @@ class GoogleCalendarClient:
 
         return payload
 
+    # =====================================================
+    # GOOGLE API ERROR HANDLING
+    # =====================================================
+
     @staticmethod
     def _raise_api_error(
         response: httpx.Response,
@@ -384,7 +492,10 @@ class GoogleCalendarClient:
         message = ""
 
         try:
-            payload = response.json()
+            payload = (
+                response.json()
+            )
+
         except ValueError:
             payload = {}
 
@@ -443,6 +554,10 @@ class GoogleCalendarClient:
                             raw_reason.strip()
                         )
 
+        # ---------------------------------------------
+        # Authentication expired / invalid
+        # ---------------------------------------------
+
         if response.status_code == 401:
             raise (
                 OAuthReauthorizationRequiredError(
@@ -452,11 +567,20 @@ class GoogleCalendarClient:
                 )
             )
 
+        # ---------------------------------------------
+        # Permission / OAuth scope problems
+        # ---------------------------------------------
+
         if response.status_code == 403:
-            if reason in {
-                "insufficientPermissions",
-                "forbiddenForNonOrganizer",
-            } or "scope" in message.lower():
+            if (
+                reason
+                in {
+                    "insufficientPermissions",
+                    "forbiddenForNonOrganizer",
+                }
+                or "scope"
+                in message.lower()
+            ):
                 raise (
                     OAuthInsufficientScopeError(
                         message
@@ -477,6 +601,10 @@ class GoogleCalendarClient:
                 )
             )
 
+        # ---------------------------------------------
+        # Event not found
+        # ---------------------------------------------
+
         if response.status_code == 404:
             raise NotFoundError(
                 message
@@ -486,11 +614,19 @@ class GoogleCalendarClient:
                 )
             )
 
+        # ---------------------------------------------
+        # Google rate limit
+        # ---------------------------------------------
+
         if response.status_code == 429:
             raise GoogleCalendarError(
                 "Google Calendar rate limit "
                 "was reached. Try again later."
             )
+
+        # ---------------------------------------------
+        # Google server problems
+        # ---------------------------------------------
 
         if (
             500
@@ -502,6 +638,10 @@ class GoogleCalendarClient:
                 "unavailable"
             )
 
+        # ---------------------------------------------
+        # Any other Google error
+        # ---------------------------------------------
+
         raise GoogleCalendarError(
             message
             or (
@@ -510,11 +650,17 @@ class GoogleCalendarClient:
             )
         )
 
+    # =====================================================
+    # HELPERS
+    # =====================================================
+
     @staticmethod
     def _encode(
         value: str,
     ) -> str:
-        normalized = value.strip()
+        normalized = (
+            value.strip()
+        )
 
         if not normalized:
             raise ValueError(
