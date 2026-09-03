@@ -465,56 +465,7 @@ export function DashboardPage() {
           </div>
         </Card>
 
-        <Card className={`${darkCardClass} relative !overflow-hidden !p-0`}>
-          <div className="pointer-events-none absolute right-0 top-0 h-44 w-44 rounded-full bg-violet-400/[0.07] blur-3xl" />
-          <div className="relative border-b border-white/[0.07] px-5 py-5 sm:px-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">Product roadmap</p>
-                <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-white">What comes after Standard RAG</h2>
-                <p className="mt-1.5 max-w-xl text-sm leading-6 text-slate-500">Upcoming LifeOps capabilities are shown directly from the dashboard API.</p>
-              </div>
-              <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-violet-300/10 bg-violet-300/[0.055] text-violet-200 sm:flex">
-                <Layers3 className="h-5 w-5" aria-hidden="true" />
-              </div>
-            </div>
-          </div>
-
-          <div className="relative p-5 sm:p-6">
-            {upcomingModules.length > 0 ? (
-              <ol className="space-y-3">
-                {upcomingModules.map((module, index) => (
-                  <motion.li
-                    key={`${module.phase}-${module.name}`}
-                    initial={shouldReduceMotion ? false : { opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: shouldReduceMotion ? 0 : 0.28 + index * 0.045, duration: 0.3 }}
-                    className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 transition-colors hover:border-violet-300/12 hover:bg-white/[0.045]"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.045] text-xs font-bold text-slate-300">
-                      {module.phase}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-200">{module.name}</p>
-                      <p className="mt-0.5 text-xs text-slate-600">Phase {module.phase}</p>
-                    </div>
-                    <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1 text-[11px] font-semibold capitalize text-slate-500">
-                      {module.status}
-                    </span>
-                  </motion.li>
-                ))}
-              </ol>
-            ) : (
-              <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.035] text-slate-500">
-                  <Layers3 className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <p className="mt-4 text-sm font-semibold text-slate-200">No upcoming modules listed</p>
-                <p className="mt-1.5 max-w-sm text-xs leading-5 text-slate-500">The dashboard API did not return any planned modules for this workspace.</p>
-              </div>
-            )}
-          </div>
-        </Card>
+      
       </motion.section>
 
       <motion.footer

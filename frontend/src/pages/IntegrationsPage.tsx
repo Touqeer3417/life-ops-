@@ -164,10 +164,10 @@ export function IntegrationsPage() {
   function enableGmail() {
     const accessLevel:
       GoogleCalendarAccessLevel =
-        integration.data
-          ?.can_write_calendar
-          ? 'write'
-          : 'read'
+      integration.data
+        ?.can_write_calendar
+        ? 'write'
+        : 'read'
 
     startConnection(
       [
@@ -487,11 +487,11 @@ export function IntegrationsPage() {
                   'rounded-full',
                   google.connected
                     ? [
-                        'bg-emerald-300',
-                        'shadow-[0_0_14px_rgba(110,231,183,0.75)]',
-                      ].join(' ')
+                      'bg-emerald-300',
+                      'shadow-[0_0_14px_rgba(110,231,183,0.75)]',
+                    ].join(' ')
                     : google
-                        .reauthorization_required
+                      .reauthorization_required
                       ? 'bg-amber-300'
                       : 'bg-slate-500',
                 ].join(' ')}
@@ -532,10 +532,10 @@ export function IntegrationsPage() {
               shouldReduceMotion
                 ? false
                 : {
-                    opacity: 0,
-                    y: -8,
-                    height: 0,
-                  }
+                  opacity: 0,
+                  y: -8,
+                  height: 0,
+                }
             }
             animate={{
               opacity: 1,
@@ -545,13 +545,13 @@ export function IntegrationsPage() {
             exit={
               shouldReduceMotion
                 ? {
-                    opacity: 0,
-                  }
+                  opacity: 0,
+                }
                 : {
-                    opacity: 0,
-                    y: -8,
-                    height: 0,
-                  }
+                  opacity: 0,
+                  y: -8,
+                  height: 0,
+                }
             }
             transition={{
               duration: 0.32,
@@ -823,7 +823,7 @@ export function IntegrationsPage() {
               ) : null}
 
               {calendarEnabled &&
-              !google.can_write_calendar ? (
+                !google.can_write_calendar ? (
                 <Button
                   type="button"
                   variant="secondary"
@@ -994,192 +994,192 @@ export function IntegrationsPage() {
           </IntegrationCard>
 
           {!calendarEnabled &&
-          !gmailEnabled && (
-            <section
-              className={[
-                'rounded-[24px]',
-                'border',
-                'border-cyan-300/[0.10]',
-                'bg-cyan-300/[0.035]',
-                'p-5',
-              ].join(' ')}
-            >
-              <div
+            !gmailEnabled && (
+              <section
                 className={[
-                  'flex flex-col gap-4',
-                  'sm:flex-row',
-                  'sm:items-center',
-                  'sm:justify-between',
+                  'rounded-[24px]',
+                  'border',
+                  'border-cyan-300/[0.10]',
+                  'bg-cyan-300/[0.035]',
+                  'p-5',
                 ].join(' ')}
               >
-                <div>
-                  <p
-                    className={[
-                      'text-sm font-semibold',
-                      'text-white',
-                    ].join(' ')}
-                  >
-                    Enable both Google services
-                  </p>
-
-                  <p
-                    className={[
-                      'mt-1',
-                      'text-sm leading-6',
-                      'text-slate-500',
-                    ].join(' ')}
-                  >
-                    Authorize Calendar read access and
-                    Gmail read-only access in one Google
-                    consent flow.
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  disabled={
-                    isBusy
-                  }
-                  onClick={
-                    connectCalendarAndGmail
-                  }
-                >
-                  <Link2
-                    className="mr-2 h-4 w-4"
-                    aria-hidden="true"
-                  />
-
-                  Connect both
-                </Button>
-              </div>
-            </section>
-          )}
-
-          {(google.connected ||
-            google.reauthorization_required) && (
-            <section
-              className={[
-                'rounded-[24px]',
-                'border',
-                'border-white/[0.08]',
-                'bg-[#0a0d13]/88',
-                'p-5',
-                'backdrop-blur-xl',
-              ].join(' ')}
-            >
-              <div
-                className={[
-                  'flex flex-col gap-4',
-                  'sm:flex-row',
-                  'sm:items-center',
-                  'sm:justify-between',
-                ].join(' ')}
-              >
-                <div>
-                  <h2
-                    className={[
-                      'text-sm font-semibold',
-                      'text-white',
-                    ].join(' ')}
-                  >
-                    Shared Google connection
-                  </h2>
-
-                  <p
-                    className={[
-                      'mt-1 max-w-xl',
-                      'text-xs leading-5',
-                      'text-slate-500',
-                    ].join(' ')}
-                  >
-                    Calendar and Gmail use the same
-                    encrypted Google OAuth connection.
-                    Disconnecting Google disables both.
-                  </p>
-                </div>
-
                 <div
                   className={[
-                    'flex flex-wrap gap-2',
+                    'flex flex-col gap-4',
+                    'sm:flex-row',
+                    'sm:items-center',
+                    'sm:justify-between',
                   ].join(' ')}
                 >
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={
-                      isBusy
-                    }
-                    onClick={
-                      reconnectGoogle
-                    }
-                  >
-                    <RefreshCw
+                  <div>
+                    <p
                       className={[
-                        'mr-2 h-4 w-4',
-                        connectMutation.isPending
-                          ? 'animate-spin motion-reduce:animate-none'
-                          : '',
+                        'text-sm font-semibold',
+                        'text-white',
                       ].join(' ')}
-                      aria-hidden="true"
-                    />
+                    >
+                      Enable both Google services
+                    </p>
 
-                    Reconnect
-                  </Button>
+                    <p
+                      className={[
+                        'mt-1',
+                        'text-sm leading-6',
+                        'text-slate-500',
+                      ].join(' ')}
+                    >
+                      Authorize Calendar read access and
+                      Gmail read-only access in one Google
+                      consent flow.
+                    </p>
+                  </div>
 
                   <Button
                     type="button"
-                    variant="ghost"
                     disabled={
                       isBusy
                     }
                     onClick={
-                      handleDisconnect
+                      connectCalendarAndGmail
                     }
-                    className={[
-                      'text-rose-200',
-                      'hover:bg-rose-400/10',
-                      'hover:text-rose-100',
-                      'focus:ring-rose-300',
-                    ].join(' ')}
                   >
-                    <Unplug
+                    <Link2
                       className="mr-2 h-4 w-4"
                       aria-hidden="true"
                     />
 
-                    Disconnect
+                    Connect both
                   </Button>
                 </div>
-              </div>
+              </section>
+            )}
 
-              {google.connected_at && (
+          {(google.connected ||
+            google.reauthorization_required) && (
+              <section
+                className={[
+                  'rounded-[24px]',
+                  'border',
+                  'border-white/[0.08]',
+                  'bg-[#0a0d13]/88',
+                  'p-5',
+                  'backdrop-blur-xl',
+                ].join(' ')}
+              >
                 <div
                   className={[
-                    'mt-4 flex',
-                    'items-center gap-2',
-                    'border-t',
-                    'border-white/[0.06]',
-                    'pt-4',
-                    'text-xs',
-                    'text-slate-500',
+                    'flex flex-col gap-4',
+                    'sm:flex-row',
+                    'sm:items-center',
+                    'sm:justify-between',
                   ].join(' ')}
                 >
-                  <CheckCircle2
-                    className={[
-                      'h-3.5 w-3.5',
-                      'text-emerald-300',
-                    ].join(' ')}
-                    aria-hidden="true"
-                  />
+                  <div>
+                    <h2
+                      className={[
+                        'text-sm font-semibold',
+                        'text-white',
+                      ].join(' ')}
+                    >
+                      Shared Google connection
+                    </h2>
 
-                  Connected{' '}
-                  {formatDateTime(
-                    google.connected_at,
-                  )}
+                    <p
+                      className={[
+                        'mt-1 max-w-xl',
+                        'text-xs leading-5',
+                        'text-slate-500',
+                      ].join(' ')}
+                    >
+                      Calendar and Gmail use the same
+                      encrypted Google OAuth connection.
+                      Disconnecting Google disables both.
+                    </p>
+                  </div>
+
+                  <div
+                    className={[
+                      'flex flex-wrap gap-2',
+                    ].join(' ')}
+                  >
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={
+                        isBusy
+                      }
+                      onClick={
+                        reconnectGoogle
+                      }
+                    >
+                      <RefreshCw
+                        className={[
+                          'mr-2 h-4 w-4',
+                          connectMutation.isPending
+                            ? 'animate-spin motion-reduce:animate-none'
+                            : '',
+                        ].join(' ')}
+                        aria-hidden="true"
+                      />
+
+                      Reconnect
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={
+                        isBusy
+                      }
+                      onClick={
+                        handleDisconnect
+                      }
+                      className={[
+                        'text-rose-200',
+                        'hover:bg-rose-400/10',
+                        'hover:text-rose-100',
+                        'focus:ring-rose-300',
+                      ].join(' ')}
+                    >
+                      <Unplug
+                        className="mr-2 h-4 w-4"
+                        aria-hidden="true"
+                      />
+
+                      Disconnect
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </section>
-          )}
+
+                {google.connected_at && (
+                  <div
+                    className={[
+                      'mt-4 flex',
+                      'items-center gap-2',
+                      'border-t',
+                      'border-white/[0.06]',
+                      'pt-4',
+                      'text-xs',
+                      'text-slate-500',
+                    ].join(' ')}
+                  >
+                    <CheckCircle2
+                      className={[
+                        'h-3.5 w-3.5',
+                        'text-emerald-300',
+                      ].join(' ')}
+                      aria-hidden="true"
+                    />
+
+                    Connected{' '}
+                    {formatDateTime(
+                      google.connected_at,
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
 
           {connectMutation.isError && (
             <ErrorState
@@ -1201,263 +1201,8 @@ export function IntegrationsPage() {
         <aside
           className="space-y-5"
         >
-          <section
-            className={[
-              'relative overflow-hidden',
-              'rounded-[24px]',
-              'border border-white/[0.08]',
-              'bg-white/[0.035]',
-              'p-5',
-              'backdrop-blur-xl',
-            ].join(' ')}
-          >
-            <div
-              aria-hidden="true"
-              className={[
-                'absolute',
-                '-right-10 -top-10',
-                'h-36 w-36',
-                'rounded-full',
-                'bg-cyan-400/[0.08]',
-                'blur-3xl',
-              ].join(' ')}
-            />
 
-            <div
-              className={[
-                'relative flex',
-                'items-center gap-3',
-              ].join(' ')}
-            >
-              <div
-                className={[
-                  'flex h-10 w-10',
-                  'items-center justify-center',
-                  'rounded-xl',
-                  'border',
-                  'border-cyan-300/15',
-                  'bg-cyan-300/[0.07]',
-                  'text-cyan-200',
-                ].join(' ')}
-              >
-                <LockKeyhole
-                  className="h-5 w-5"
-                  aria-hidden="true"
-                />
-              </div>
-
-              <div>
-                <h2
-                  className="font-semibold text-white"
-                >
-                  Security model
-                </h2>
-
-                <p
-                  className={[
-                    'mt-0.5',
-                    'text-xs',
-                    'text-slate-500',
-                  ].join(' ')}
-                >
-                  Provider access stays server-side.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={[
-                'relative mt-5',
-                'space-y-3',
-              ].join(' ')}
-            >
-              <SecurityRow
-                icon={
-                  KeyRound
-                }
-                title="LifeOps identity"
-                description="Auth0 continues to authenticate your LifeOps account."
-              />
-
-              <SecurityRow
-                icon={
-                  ShieldCheck
-                }
-                title="One Google OAuth connection"
-                description="Calendar and Gmail extend the same Google authorization with incremental scopes."
-              />
-
-              <SecurityRow
-                icon={
-                  Mail
-                }
-                title="Read-only Gmail"
-                description="Phase 4 does not send, delete, reply to, or modify emails."
-              />
-
-              <SecurityRow
-                icon={
-                  LockKeyhole
-                }
-                title="Encrypted credentials"
-                description="Google tokens stay encrypted in the backend and are never sent to the frontend or agent."
-              />
-            </div>
-          </section>
-
-          <section
-            className={[
-              'rounded-[24px]',
-              'border',
-              'border-white/[0.08]',
-              'bg-[#0a0d13]/88',
-              'p-5',
-              'backdrop-blur-xl',
-            ].join(' ')}
-          >
-            <div
-              className={[
-                'flex items-start',
-                'justify-between',
-                'gap-4',
-              ].join(' ')}
-            >
-              <div>
-                <p
-                  className={[
-                    'text-xs font-semibold',
-                    'uppercase',
-                    'tracking-[0.14em]',
-                    'text-slate-500',
-                  ].join(' ')}
-                >
-                  Permission ledger
-                </p>
-
-                <h2
-                  className={[
-                    'mt-1.5',
-                    'font-semibold',
-                    'text-white',
-                  ].join(' ')}
-                >
-                  Granted scopes
-                </h2>
-              </div>
-
-              <span
-                className={[
-                  'rounded-lg',
-                  'border',
-                  'border-white/[0.07]',
-                  'bg-white/[0.04]',
-                  'px-2 py-1',
-                  'text-[10px]',
-                  'font-semibold',
-                  'text-slate-400',
-                ].join(' ')}
-              >
-                {
-                  google
-                    .granted_scopes
-                    .length
-                }
-              </span>
-            </div>
-
-            <p
-              className={[
-                'mt-2',
-                'text-sm leading-6',
-                'text-slate-500',
-              ].join(' ')}
-            >
-              Permissions currently recorded for this
-              shared Google authorization.
-            </p>
-
-            <div
-              className={[
-                'mt-4',
-                'max-h-64',
-                'space-y-2',
-                'overflow-y-auto',
-                'pr-1',
-              ].join(' ')}
-            >
-              {google
-                .granted_scopes
-                .length > 0 ? (
-                google.granted_scopes.map(
-                  (scope) => (
-                    <div
-                      key={scope}
-                      className={[
-                        'break-all',
-                        'rounded-xl',
-                        'border',
-                        'border-white/[0.06]',
-                        'bg-white/[0.035]',
-                        'px-3 py-2.5',
-                        'font-mono',
-                        'text-[11px]',
-                        'leading-5',
-                        'text-slate-400',
-                      ].join(' ')}
-                    >
-                      {scope}
-                    </div>
-                  ),
-                )
-              ) : (
-                <div
-                  className={[
-                    'rounded-xl',
-                    'border border-dashed',
-                    'border-white/[0.08]',
-                    'bg-white/[0.02]',
-                    'px-4 py-5',
-                    'text-center',
-                    'text-sm',
-                    'text-slate-500',
-                  ].join(' ')}
-                >
-                  No Google permissions have been
-                  granted yet.
-                </div>
-              )}
-            </div>
-
-            <div
-              className={[
-                'mt-5',
-                'rounded-xl',
-                'border border-white/[0.06]',
-                'bg-black/15',
-                'p-3',
-              ].join(' ')}
-            >
-              <div
-                className={[
-                  'flex items-center',
-                  'justify-between',
-                  'text-xs',
-                ].join(' ')}
-              >
-                <span
-                  className="text-slate-500"
-                >
-                  Active capabilities
-                </span>
-
-                <span
-                  className="font-semibold text-slate-300"
-                >
-                  {enabledPermissionCount}/4
-                </span>
-              </div>
-            </div>
-          </section>
+         
         </aside>
       </motion.div>
     </motion.div>
@@ -1565,15 +1310,15 @@ function IntegrationCard({
                     'font-semibold',
                     enabled
                       ? [
-                          'border-emerald-300/15',
-                          'bg-emerald-300/[0.08]',
-                          'text-emerald-200',
-                        ].join(' ')
+                        'border-emerald-300/15',
+                        'bg-emerald-300/[0.08]',
+                        'text-emerald-200',
+                      ].join(' ')
                       : [
-                          'border-white/[0.08]',
-                          'bg-white/[0.04]',
-                          'text-slate-400',
-                        ].join(' '),
+                        'border-white/[0.08]',
+                        'bg-white/[0.04]',
+                        'text-slate-400',
+                      ].join(' '),
                   ].join(' ')}
                 >
                   {badge}
@@ -1626,15 +1371,15 @@ function PermissionCard({
         'transition duration-300',
         enabled
           ? [
-              'border-emerald-300/15',
-              'bg-emerald-300/[0.055]',
-              'hover:border-emerald-300/25',
-            ].join(' ')
+            'border-emerald-300/15',
+            'bg-emerald-300/[0.055]',
+            'hover:border-emerald-300/25',
+          ].join(' ')
           : [
-              'border-white/[0.07]',
-              'bg-white/[0.025]',
-              'hover:border-white/[0.12]',
-            ].join(' '),
+            'border-white/[0.07]',
+            'bg-white/[0.025]',
+            'hover:border-white/[0.12]',
+          ].join(' '),
       ].join(' ')}
     >
       <div
@@ -1662,15 +1407,15 @@ function PermissionCard({
             'border',
             enabled
               ? [
-                  'border-emerald-300/20',
-                  'bg-emerald-300/10',
-                  'text-emerald-200',
-                ].join(' ')
+                'border-emerald-300/20',
+                'bg-emerald-300/10',
+                'text-emerald-200',
+              ].join(' ')
               : [
-                  'border-white/[0.08]',
-                  'bg-white/[0.035]',
-                  'text-slate-600',
-                ].join(' '),
+                'border-white/[0.08]',
+                'bg-white/[0.035]',
+                'text-slate-600',
+              ].join(' '),
           ].join(' ')}
           aria-label={
             enabled
